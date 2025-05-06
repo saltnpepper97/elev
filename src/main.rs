@@ -5,6 +5,10 @@ use rpassword::read_password;
 use std::process::{Command as ProcessCommand, exit, ExitStatus};
 use std::io::{self, Write};
 
+mod config;
+
+use config::Config;
+
 fn main() {
     let matches = Command::new("Nexus")
         .version("1.0")
@@ -69,6 +73,12 @@ fn main() {
                 println!("Privileges escalated to root.");
             }
         }
+
+        // Check config before running command
+        let config = Config::load("/etc/nexus.conf").expect("Failed to load config");
+
+
+
         // Step 4: Execute the command
         match run_command(command, &args) {
             Ok(status) => {
