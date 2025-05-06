@@ -16,7 +16,7 @@
 
 ## 🛠️ Building
 
-To build `nexus`, you'll need Rust installed. Then:
+To build `nexus`, you'll need Rust > 1.70 installed. Then run this command:
 
 ```bash
 cargo build --release
