@@ -1,12 +1,11 @@
-use clap::{Command, Arg};
+use clap::{Arg, Command};
 use nix::unistd::{setuid, Uid, User};
 use pam::client::Client;
 use rpassword::read_password;
-use std::process::{Command as ProcessCommand, exit, ExitStatus};
 use std::io::{self, Write};
+use std::process::{exit, Command as ProcessCommand, ExitStatus};
 
 mod config;
-
 use config::Config;
 
 fn main() {
@@ -34,74 +33,70 @@ fn main() {
         .collect::<Vec<_>>();
     let command = command_and_args[0];
     let args: Vec<&str> = command_and_args[1..].iter().map(|s| s.as_str()).collect();
-    let user = matches.get_one::<String>("user").map(|u| u.as_str());
+    let target_user = matches.get_one::<String>("user").map(|s| s.as_str()).unwrap_or("root");
 
-    // Step 1: Prompt for password
+    // Step 1: Load and check config
+    let config = Config::load("/etc/nexus.conf").expect("Failed to load config");
+
+    let current_user = whoami::username();
+    let groups = get_user_groups(&current_user);
+
+    let full_cmd = which::which(command).unwrap_or_else(|_| std::path::PathBuf::from(command)).to_string_lossy().to_string();
+
+    if !config.is_permitted(&current_user, &groups, target_user, &full_cmd) {
+        eprintln!("Nexus: Permission denied for '{}'", current_user);
+        exit(1);
+    }
+
+    // Step 2: Prompt for password
     print!("Password: ");
     io::stdout().flush().unwrap();
-
     let password = read_password().expect("failed to read password");
 
-    // Step 2: Authentication
-    if verify_password(&password) {
-        println!("Access granted.");
-        println!("Running command: {}", command);
+    // Step 3: Authenticate with PAM
+    if !verify_password(&password) {
+        println!("Authentication failed");
+        exit(1);
+    }
 
+    println!("Access granted.");
+    println!("Running command: {}", command);
 
-        // Step 3: Handle Privileges
-        match user {
-            Some(username) => {
-                match User::from_name(username).unwrap_or(None) {
-                    Some(user_struct) => {
-                        if let Err(e) = setuid(user_struct.uid) {
-                            eprintln!("Failed to switch to user '{}': {}", username, e);
-                            exit(1);
-                        }
-                        println!("Switched to user: {}", username)
-                    }
-                    None => {
-                        eprintln!("User {} not found", username);
-                        exit(1);
-                    }
+    // Step 4: Set UID
+    if target_user != current_user {
+        match User::from_name(target_user).unwrap_or(None) {
+            Some(user_struct) => {
+                if let Err(e) = setuid(user_struct.uid) {
+                    eprintln!("Failed to switch to user '{}': {}", target_user, e);
+                    exit(1);
                 }
+                println!("Switched to user: {}", target_user);
             }
             None => {
-                if let Err(e) = setuid(Uid::from_raw(0)) {
-                    eprintln!("Privileges escalation to root failed: {}", e);
-                    exit(1);
-                }
-                println!("Privileges escalated to root.");
-            }
-        }
-
-        // Check config before running command
-        let config = Config::load("/etc/nexus.conf").expect("Failed to load config");
-
-
-
-        // Step 4: Execute the command
-        match run_command(command, &args) {
-            Ok(status) => {
-                if !status.success() {
-                    println!("Command failed with status {}", status);
-                    exit(1);
-                }
-            },
-            Err(e) => {
-                println!("Error executing command: {}", e);
+                eprintln!("User '{}' not found", target_user);
                 exit(1);
             }
         }
-    } else {
-        println!("Authentication failed");
+    }
+
+    // Step 5: Execute command
+    match run_command(command, &args) {
+        Ok(status) => {
+            if !status.success() {
+                println!("Command failed with status {}", status);
+                exit(1);
+            }
+        }
+        Err(e) => {
+            println!("Error executing command: {}", e);
+            exit(1);
+        }
     }
 }
 
 fn verify_password(password: &str) -> bool {
     let mut client = Client::with_password("login").expect("Failed to create PAM client");
-
     let username = whoami::username();
-
     client.conversation_mut().set_credentials(&username, password);
 
     match client.authenticate() {
@@ -110,14 +105,21 @@ fn verify_password(password: &str) -> bool {
             true
         }
         Err(e) => {
-            eprintln!("PAM: Authentication failed {}", e);
+            eprintln!("PAM: Authentication failed: {}", e);
             false
         }
     }
 }
 
 fn run_command(cmd: &str, args: &[&str]) -> Result<ExitStatus, std::io::Error> {
-    ProcessCommand::new(cmd)
-        .args(args)
-        .status()
+    ProcessCommand::new(cmd).args(args).status()
+}
+
+fn get_user_groups(user: &str) -> Vec<String> {
+    use nix::unistd::Group;
+
+    match Group::get_group_list(user, None) {
+        Ok(groups) => groups.iter().map(|g| g.name.clone()).collect(),
+        Err(_) => vec![],
+    }
 }
