@@ -3,6 +3,8 @@ mod auth;
 mod exec;
 mod util;
 
+use std::env::args;
+use std::process::exit;
 use config::Config;
 use util::get_user_groups;
 

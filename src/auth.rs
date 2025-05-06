@@ -1,5 +1,5 @@
 use pam::client::Client;
-use rpassword::read_passwordl;
+use rpassword::read_password;
 use std::io::{self, Write};
 
 pub fn prompt_password() -> Option<String> {
