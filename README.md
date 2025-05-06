@@ -9,7 +9,7 @@
 - 🔐 Written in safe Rust
 - ⚡ Fast and lightweight
 - ✅ Simple configuration
-- 🧩 Built with solarpunk and cybersecurity values
+- 🧩 Built with solarpunk and cybersecurity in mind
 - 🔧 Customizable and extensible for different workflows
 
 ---
