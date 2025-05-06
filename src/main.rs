@@ -1,5 +1,5 @@
 use clap::{Arg, Command};
-use nix::unistd::{setuid, Uid, User};
+use nix::unistd::{setuid, User};
 use pam::client::Client;
 use rpassword::read_password;
 use std::io::{self, Write};
@@ -41,7 +41,7 @@ fn main() {
     let current_user = whoami::username();
     let groups = get_user_groups(&current_user);
 
-    let full_cmd = which::which(command).unwrap_or_else(|_| std::path::PathBuf::from(command)).to_string_lossy().to_string();
+    let full_cmd = command.to_string();
 
     if !config.is_permitted(&current_user, &groups, target_user, &full_cmd) {
         eprintln!("Nexus: Permission denied for '{}'", current_user);
@@ -116,10 +116,16 @@ fn run_command(cmd: &str, args: &[&str]) -> Result<ExitStatus, std::io::Error> {
 }
 
 fn get_user_groups(user: &str) -> Vec<String> {
-    use nix::unistd::Group;
+    let output = std::process::Command::new("id")
+        .arg("-Gn")
+        .arg(user)
+        .output();
 
-    match Group::get_group_list(user, None) {
-        Ok(groups) => groups.iter().map(|g| g.name.clone()).collect(),
-        Err(_) => vec![],
+    match output {
+        Ok(out) if out.status.success() => {
+            let group_str = String::from_utf8_lossy(&out.stdout);
+            group_str.split_whitespace().map(|s| s.to_string()).collect()
+        }
+        _ => vec![],
     }
 }

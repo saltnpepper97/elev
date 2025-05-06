@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::collections::HashMap;
 
 /// Represents a single permission rule from the config.
 #[derive(Debug)]
