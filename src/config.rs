@@ -21,8 +21,8 @@ pub struct Rule {
 #[derive(Debug)]
 pub struct Config {
     pub rules: Vec<Rule>,
-    pub last_authenticated: HashMap<String, u64>, // Stores the last authentication timestamp for users
-    pub timeout: u64, // Timeout in seconds, e.g., 15 minutes
+    pub last_authenticated: HashMap<String, u64>,
+    pub timeout: u64,
 }
 
 impl Config {
