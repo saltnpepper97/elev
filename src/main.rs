@@ -63,7 +63,7 @@ fn main() {
     let groups = get_user_groups(&current_user);
 
     log_info(&format!(
-        "Nexus invoked by '{}' to run '{}' as '{}'",
+        "elev invoked by '{}' to run '{}' as '{}'",
         current_user,
         command,
         target_user
@@ -77,7 +77,7 @@ fn main() {
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
 
     if !config.is_permitted(&current_user, &groups, target_user, None, command) {
-        log_error(&format!("Nexus: Permission denied for '{}'", current_user));
+        log_error(&format!("elev: Permission denied for '{}'", current_user));
         exit(1);
     }
 
