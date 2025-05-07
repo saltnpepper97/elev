@@ -75,7 +75,8 @@ impl Log for ConsoleLogger {
     }
 
     fn log(&self, record: &Record) {
-        let msg = format!("DEBUG - {}: {}", record.target(), record.args());
+        // Just show the level and message — no target
+        let msg = format!("{} - {}", record.level(), record.args());
         println!("{}", msg);
     }
 
