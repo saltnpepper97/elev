@@ -1,6 +1,6 @@
 use pam::client::Client;
 use std::fs::{read_to_string, write, create_dir_all};
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::logs::{log_info, log_warn, log_error, log_debug};
@@ -144,17 +144,29 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, c
             return false;
         }
 
-        let mut client = Client::with_password("elev").ok().expect("Failed to create client");
-        client.conversation_mut().set_credentials(user, password);
+        // Retry logic: Allow a few attempts
+        const MAX_ATTEMPTS: u32 = 3;
+        let mut attempts = 0;
+        while attempts < MAX_ATTEMPTS {
+            let mut client = Client::with_password("elev").ok().expect("Failed to create client");
+            client.conversation_mut().set_credentials(user, password);
 
-        if client.authenticate().is_ok() {
-            auth_state.update_last_authenticated();
-            log_info(&format!("Successful login for user: {}", user));  // Log successful login
-            return true;
+            if client.authenticate().is_ok() {
+                auth_state.update_last_authenticated();
+                log_info(&format!("Successful login for user: {}", user));  // Log successful login
+                return true;
+            }
+
+            attempts += 1;
+            auth_state.increment_failed_attempts();
+            log_error(&format!("Failed login attempt #{} for user: {}", attempts, user));  // Log failed login attempt
+
+            if attempts < MAX_ATTEMPTS {
+                log_warn(&format!("Incorrect password. You have {} more attempts.", MAX_ATTEMPTS - attempts));
+            }
         }
 
-        auth_state.increment_failed_attempts();
-        log_error(&format!("Failed login attempt for user: {}", user));  // Log failed login attempt
+        log_warn(&format!("User '{}' failed to authenticate after {} attempts.", user, MAX_ATTEMPTS));
         return false;
     }
 
