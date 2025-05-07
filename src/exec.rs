@@ -2,7 +2,7 @@ use nix::unistd::{setuid, User};
 use std::process::{Command, ExitStatus};
 use crate::config::Config;
 use crate::auth::AuthState;
-use logs::{log_info, log_warn, log_error};  // Import the log functions
+use crate::logs::{log_info, log_warn, log_error};  // Import the log functions
 
 pub fn switch_user(target_user: &str) -> Result<(), String> {
     match User::from_name(target_user).map_err(|e| e.to_string())? {
