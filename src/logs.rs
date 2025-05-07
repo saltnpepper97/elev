@@ -1,6 +1,6 @@
 use log::{LevelFilter, Log, Metadata, Record, info, warn, debug, error};
 use syslog::{BasicLogger, Facility, Formatter3164};
-use std::sync::{Mutex, Once};
+use std::sync::Once;
 
 static INIT: Once = Once::new();
 
@@ -24,11 +24,15 @@ pub fn init_logger(verbose: bool) {
         };
 
         // Build our combined logger
-        let combined = CombinedLogger { syslog: syslogger, console: ConsoleLogger, verbose };
+        let combined = CombinedLogger {
+            syslog: syslogger,
+            console: ConsoleLogger,
+            verbose,
+        };
         let max_level = if verbose { LevelFilter::Debug } else { LevelFilter::Info };
 
         // Install it
-        let _ = log::set_boxed_logger(Box::new(Mutex::new(combined)))
+        let _ = log::set_boxed_logger(Box::new(combined))
             .map(|()| log::set_max_level(max_level));
     });
 }
@@ -41,34 +45,28 @@ struct CombinedLogger {
     verbose: bool,
 }
 
-impl Log for Mutex<CombinedLogger> {
+impl Log for CombinedLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        let lvl = if self.lock().unwrap().verbose {
-            LevelFilter::Debug
-        } else {
-            LevelFilter::Info
-        };
-        metadata.level() <= lvl
+        let level = if self.verbose { LevelFilter::Debug } else { LevelFilter::Info };
+        metadata.level() <= level
     }
 
     fn log(&self, record: &Record) {
-        let guard = self.lock().unwrap();
-        if guard.enabled(record.metadata()) {
+        if self.enabled(record.metadata()) {
             // send to syslog first
-            if let Some(ref syslogger) = guard.syslog {
+            if let Some(ref syslogger) = self.syslog {
                 let _ = syslogger.log(record);
             }
             // then console
-            guard.console.log(record);
+            self.console.log(record);
         }
     }
 
     fn flush(&self) {
-        let guard = self.lock().unwrap();
-        if let Some(ref syslogger) = guard.syslog {
+        if let Some(ref syslogger) = self.syslog {
             let _ = syslogger.flush();
         }
-        guard.console.flush();
+        self.console.flush();
     }
 }
 
@@ -77,7 +75,7 @@ pub struct ConsoleLogger;
 
 impl Log for ConsoleLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        // console always allows debug (actual gating in CombinedLogger)
+        // console allows debug; gating in CombinedLogger
         metadata.level() <= LevelFilter::Debug
     }
 
