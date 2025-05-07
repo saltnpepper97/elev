@@ -9,7 +9,7 @@ pub struct Rule {
     pub user: Option<String>,      // Some("root"), Some("*"), or None for wildcard
     pub group: Option<String>,     // Some("wheel"), Some("*"), or None for wildcard
     pub as_user: Option<String>,   // target user
-    pub command: Option<String>,   // command string or regex
+    pub cmd_regex: Option<Regex>,  // precompiled command matcher
     pub priority: u8,              // default 0 if unset
     pub start_time: Option<NaiveTime>,
     pub end_time: Option<NaiveTime>,
@@ -54,7 +54,7 @@ impl Config {
 
         let now = Local::now().time();
 
-        // Deny rules take absolute precedence
+        // Deny rules first
         for rule in &rules {
             if rule.deny && rule.matches(user, groups, target_user, command, now) {
                 return false;
@@ -81,39 +81,36 @@ impl Rule {
         command: &str,
         now: NaiveTime,
     ) -> bool {
-        // User or group match (None or "*" => wildcard)
+        // User match (None or "*" => wildcard)
         let user_ok = match &self.user {
             Some(u) if u != "*" => u == user,
             _ => true,
         };
 
+        // Group match (None or "*" => wildcard)
         let group_ok = match &self.group {
             Some(g) if g != "*" => groups.iter().any(|gr| gr == g),
             _ => true,
         };
-
         if !user_ok && !group_ok {
             return false;
         }
 
-        // 'as' (target user) match
-        if let Some(ref as_u) = self.as_user {
+        // Target user match
+        if let Some(as_u) = &self.as_user {
             if as_u != target_user {
                 return false;
             }
         }
 
-        // Command match ("*" => wildcard, or regex)
-        if let Some(ref cmd_pattern) = self.command {
-            if cmd_pattern != "*" {
-                let re = Regex::new(cmd_pattern).unwrap();
-                if !re.is_match(command) {
-                    return false;
-                }
+        // Command match via precompiled regex
+        if let Some(re) = &self.cmd_regex {
+            if !re.is_match(command) {
+                return false;
             }
         }
 
-        // Time window match
+        // Time window
         if let (Some(start), Some(end)) = (self.start_time, self.end_time) {
             if now < start || now > end {
                 return false;
@@ -122,6 +119,20 @@ impl Rule {
 
         true
     }
+}
+
+fn wildcard_to_regex(pattern: &str) -> String {
+    // Escape regex metacharacters, then replace \* -> ".*" and \? -> "."
+    let mut regex = String::from("^");
+    for ch in pattern.chars() {
+        match ch {
+            '*' => regex.push_str(".*"),
+            '?' => regex.push('.'),
+            _ => regex.push_str(&regex::escape(&ch.to_string())),
+        }
+    }
+    regex.push('$');
+    regex
 }
 
 fn parse_rule(line: &str) -> Option<Rule> {
@@ -138,6 +149,7 @@ fn parse_rule(line: &str) -> Option<Rule> {
         _ => return None,
     }
 
+    // User or group
     let mut user = None;
     let mut group = None;
     if i < tokens.len() {
@@ -151,7 +163,7 @@ fn parse_rule(line: &str) -> Option<Rule> {
     }
 
     let mut as_user = None;
-    let mut command = None;
+    let mut command_pat = None;
     let mut priority = 0;
     let mut start_time = None;
     let mut end_time = None;
@@ -163,7 +175,7 @@ fn parse_rule(line: &str) -> Option<Rule> {
                 i += 2;
             }
             "cmd" if i + 1 < tokens.len() => {
-                command = Some(tokens[i + 1].to_string());
+                command_pat = Some(tokens[i + 1].to_string());
                 i += 2;
             }
             "priority" if i + 1 < tokens.len() => {
@@ -171,10 +183,10 @@ fn parse_rule(line: &str) -> Option<Rule> {
                 i += 2;
             }
             "time" if i + 1 < tokens.len() => {
-                let times: Vec<&str> = tokens[i + 1].split('-').collect();
-                if times.len() == 2 {
-                    start_time = NaiveTime::parse_from_str(times[0], "%H:%M").ok();
-                    end_time = NaiveTime::parse_from_str(times[1], "%H:%M").ok();
+                let parts: Vec<&str> = tokens[i + 1].split('-').collect();
+                if parts.len() == 2 {
+                    start_time = NaiveTime::parse_from_str(parts[0], "%H:%M").ok();
+                    end_time = NaiveTime::parse_from_str(parts[1], "%H:%M").ok();
                 }
                 i += 2;
             }
@@ -182,5 +194,19 @@ fn parse_rule(line: &str) -> Option<Rule> {
         }
     }
 
-    Some(Rule { user, group, as_user, command, priority, start_time, end_time, deny })
+    // Compile wildcard or regex pattern
+    let cmd_regex = command_pat.map(|pat| {
+        let re_str = if pat.contains('*') || pat.contains('?') {
+            wildcard_to_regex(&pat)
+        } else if pat == "*" {
+            String::from("^.*$")
+        } else {
+            // treat as literal command name (e.g., rm)
+            format!("^{pat}$")
+        };
+        Regex::new(&re_str).unwrap_or_else(|_| Regex::new("^$").unwrap())
+    });
+
+    Some(Rule { user, group, as_user, cmd_regex, priority, start_time, end_time, deny })
 }
+
