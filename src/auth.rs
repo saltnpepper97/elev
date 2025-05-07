@@ -28,7 +28,7 @@ impl AuthState {
             let elapsed = last.elapsed();
             elapsed < self.timeout
         } else {
-            true // No previous authentication, allow for first time
+            false // No previous record found. (require authentication)
         }
     }
 
