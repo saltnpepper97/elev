@@ -48,43 +48,50 @@ impl Config {
         // Sort the rules by priority (descending order)
         let mut sorted_rules = self.rules.clone();
         sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
-
+    
         let current_time = Local::now().time();
-
+    
         for rule in sorted_rules {
             let user_match = match (&rule.user, &rule.group) {
                 (Some(u), _) if u == user => true,
                 (_, Some(g)) if groups.contains(g) => true,
                 _ => false,
             };
-
+    
             if !user_match {
                 continue;
             }
-
+    
             if let Some(as_user) = &rule.as_user {
                 if as_user != target_user {
                     continue;
                 }
             }
-
+    
+            // Handle the wildcard '*' for commands
             if let Some(cmd_pattern) = &rule.command {
-                let regex = Regex::new(cmd_pattern).unwrap(); // You could handle error here more gracefully
-                if !regex.is_match(command) {
-                    continue;
+                // If the command is a wildcard ('*'), allow any command
+                if cmd_pattern == "*" || command == cmd_pattern {
+                    // If the pattern matches the command or it's a wildcard, allow
+                } else {
+                    // If it's a regex pattern, match using regex
+                    let regex = Regex::new(cmd_pattern).unwrap(); 
+                    if !regex.is_match(command) {
+                        continue;
+                    }
                 }
             }
-
+    
             // Check time-based access
             if let (Some(start), Some(end)) = (rule.start_time, rule.end_time) {
                 if current_time < start || current_time > end {
                     continue;
                 }
             }
-
+    
             return true;
         }
-
+    
         false
     }
 }
