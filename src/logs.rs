@@ -1,5 +1,5 @@
 use syslog::{BasicLogger, Facility, Formatter3164};
-use log::{info, warn, error};
+use log::{info, warn, error, LevelFilter};
 
 pub fn init_logger(verbose: bool) {
     let formatter = Formatter3164 {
@@ -12,7 +12,8 @@ pub fn init_logger(verbose: bool) {
     match syslog::unix(formatter) {
         Ok(writer) => {
             let logger = BasicLogger::new(writer);
-            let _ = log::set_boxed_logger(Box::new(logger)).map(|()| log::set_max_level(log::LevelFilter::Info));
+            let level = if verbose { LevelFilter::Debug } else { LevelFilter::Info };
+            let _ = log::set_boxed_logger(Box::new(logger)).map(|()| log::set_max_level(level));
         }
         Err(e) => {
             eprintln!("Failed to connect to syslog: {}", e);
