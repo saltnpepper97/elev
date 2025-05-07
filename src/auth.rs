@@ -10,6 +10,8 @@ pub struct AuthState {
     pub timeout: Duration,
     pub username: String,
     pub groups: Vec<String>,
+    pub failed_attempts: u32,
+    pub lockout_time: Option<Instant>,
 }
 
 impl AuthState {
@@ -20,6 +22,8 @@ impl AuthState {
             timeout,
             username,
             groups,
+            failed_attempts: 0,
+            lockout_time: None,
         }
     }
 
@@ -35,6 +39,24 @@ impl AuthState {
     pub fn update_last_authenticated(&mut self) {
         self.last_authenticated = Some(Instant::now());
         store_auth_timestamp(&self.username);
+        self.failed_attempts = 0; // Reset failed attempts on success
+    }
+
+    pub fn check_lockout(&self) -> bool {
+        if let Some(lockout_time) = self.lockout_time {
+            let lockout_duration = Duration::from_secs(900); // Lockout for 15 minutes
+            if lockout_time.elapsed() < lockout_duration {
+                return true; // Account is locked
+            }
+        }
+        false
+    }
+
+    pub fn increment_failed_attempts(&mut self) {
+        self.failed_attempts += 1;
+        if self.failed_attempts >= 5 { // Lock after 5 failed attempts
+            self.lockout_time = Some(Instant::now());
+        }
     }
 }
 
@@ -73,6 +95,11 @@ pub fn prompt_password() -> Option<String> {
 }
 
 pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -> bool {
+    if auth_state.check_lockout() {
+        eprintln!("Account is temporarily locked due to too many failed login attempts.");
+        return false;
+    }
+
     let mut client = Client::with_password("login").ok().expect("Failed to create client");
     client.conversation_mut().set_credentials(user, password);
 
@@ -81,6 +108,8 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -
         return true;
     }
 
+    auth_state.increment_failed_attempts();
+    eprintln!("Failed login attempt for user: {}", user);
     false
 }
 
