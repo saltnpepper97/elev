@@ -4,6 +4,7 @@ use std::fs::{read_to_string, write, create_dir_all};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use logs::{log_info, log_warn, log_error};  // Add the log imports
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
@@ -96,7 +97,7 @@ pub fn prompt_password() -> Option<String> {
 
 pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -> bool {
     if auth_state.check_lockout() {
-        eprintln!("Account is temporarily locked due to too many failed login attempts.");
+        log_warn(&format!("Account is temporarily locked due to too many failed login attempts for user: {}", user));
         return false;
     }
 
@@ -105,11 +106,11 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -
 
     if client.authenticate().is_ok() {
         auth_state.update_last_authenticated();
+        log_info(&format!("Successful login for user: {}", user));  // Log successful login
         return true;
     }
 
     auth_state.increment_failed_attempts();
-    eprintln!("Failed login attempt for user: {}", user);
+    log_error(&format!("Failed login attempt for user: {}", user));  // Log failed login attempt
     false
 }
-
