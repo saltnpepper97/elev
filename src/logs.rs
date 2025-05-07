@@ -1,5 +1,4 @@
 use syslog::{BasicLogger, Facility, Formatter3164};
-use std::sync::{OnceLock, Mutex};
 use log::{info, warn, error};
 
 pub fn init_logger() {
