@@ -23,6 +23,26 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn load(filename: &str) -> Result<Config, std::io::Error> {
+        let file = std::fs::File::open(filename)?;
+        let reader = std::io::BufReader::new(file);
+
+        let mut rules = Vec::new();
+        let mut timeout = Duration::new(0, 0);
+
+        for line in reader.lines() {
+            let line = line?;
+            if let Some(rule) = parse_rule(&line) {
+                rules.push(rule);
+            }
+        }
+
+        // You may need to parse the timeout as well, if it is defined in the config file.
+        // For now, set a default timeout.
+        timeout = Duration::new(60, 0); // Example timeout of 60 seconds
+
+        Ok(Config { rules, timeout })
+    }
     pub fn is_permitted(&self, user: &str, groups: &[String], target_user: &str, command: &str) -> bool {
         let mut sorted_rules = self.rules.clone();
         sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
