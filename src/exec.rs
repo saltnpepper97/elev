@@ -2,13 +2,13 @@ use nix::unistd::{setuid, User};
 use std::process::{Command, ExitStatus};
 use crate::config::Config;
 use crate::auth::AuthState;
-use crate::logs::{log_info, log_warn, log_error};  // Import the log functions
+use crate::logs::{log_info, log_warn, log_error};
 
 pub fn switch_user(target_user: &str) -> Result<(), String> {
     match User::from_name(target_user).map_err(|e| e.to_string())? {
         Some(user_struct) => {
             log_info(&format!("Switching to user '{}'", target_user));  // Log the user switch action
-            setuid(user_struct.uid).map_err(|e| e.to_string())
+            setuid(user_struct.uid).map_err(|e| e.to_string())  // Switch user
         },
         None => {
             log_error(&format!("User '{}' not found", target_user));  // Log error if user not found
@@ -23,6 +23,7 @@ pub fn run_command(
     cmd: &str,
     args: &[&str],
 ) -> Result<ExitStatus, std::io::Error> {
+    let target_user = &auth_state.username; // User to run the command as
     let target_group = auth_state.groups.first();
 
     // Ensure the user has permission to run the command
@@ -52,6 +53,15 @@ pub fn run_command(
         return Err(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "Authentication timeout expired",
+        ));
+    }
+
+    // Switch user before running the command
+    if let Err(e) = switch_user(target_user) {
+        log_error(&e);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "User switch failed",
         ));
     }
 
