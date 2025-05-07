@@ -1,4 +1,4 @@
-use log::{LevelFilter, info, debug, error};
+use log::{LevelFilter, info, warn, debug, error};
 use syslog::{BasicLogger, Facility, Formatter3164};
 
 pub fn init_logger(verbose: bool) {
@@ -27,9 +27,7 @@ pub fn init_logger(verbose: bool) {
     }
 }
 
-
-// Simple console logger to fall back on when syslog isn't available
-struct ConsoleLogger;
+pub struct ConsoleLogger;
 
 impl log::Log for ConsoleLogger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
