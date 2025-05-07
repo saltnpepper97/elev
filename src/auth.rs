@@ -72,7 +72,7 @@ impl AuthState {
 }
 
 fn auth_timestamp_path(user: &str) -> PathBuf {
-    PathBuf::from(format!("/run/nexus/auth-{}.ts", user))
+    PathBuf::from(format!("/run/elev/auth-{}.ts", user))
 }
 
 fn load_last_auth(user: &str) -> Option<Instant> {
@@ -95,7 +95,7 @@ fn store_auth_timestamp(user: &str) {
         .as_secs();
 
     let path = auth_timestamp_path(user);
-    let _ = create_dir_all("/run/nexus");
+    let _ = create_dir_all("/run/elev");
     let _ = write(path, format!("{}", now));
 }
 
@@ -128,7 +128,7 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, c
             return false;
         }
 
-        let mut client = Client::with_password("nexus").ok().expect("Failed to create client");
+        let mut client = Client::with_password("elev").ok().expect("Failed to create client");
         client.conversation_mut().set_credentials(user, password);
 
         if client.authenticate().is_ok() {
