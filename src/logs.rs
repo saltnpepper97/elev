@@ -21,6 +21,9 @@ pub fn init_logger(verbose: bool) {
                 eprintln!("Failed to connect to syslog: {}", e);
             }
         }
+
+        // Ensure console also shows debug-level logs
+        let _ = log::set_boxed_logger(Box::new(ConsoleLogger)).map(|()| log::set_max_level(LevelFilter::Debug));
     } else {
         // When verbose is false, only show info-level and higher logs
         log::set_max_level(LevelFilter::Info);
