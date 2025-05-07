@@ -13,6 +13,7 @@ pub struct Rule {
     pub priority: Option<u8>,
     pub start_time: Option<NaiveTime>,
     pub end_time: Option<NaiveTime>,
+    pub deny: bool,
 }
 
 #[derive(Debug)]
@@ -56,6 +57,44 @@ impl Config {
 
         let current_time = Local::now().time();
 
+        // First, check for deny rules
+        for rule in &sorted_rules {
+            if rule.deny {
+                let user_match = match (&rule.user, &rule.group) {
+                    (Some(u), _) if u == user => true,
+                    (_, Some(g)) if groups.contains(g) => true,
+                    _ => false,
+                };
+
+                if user_match {
+                    if let Some(as_user) = &rule.as_user {
+                        if as_user != target_user {
+                            continue;
+                        }
+                    }
+
+                    if let Some(cmd_pattern) = &rule.command {
+                        if cmd_pattern == "*" || command == cmd_pattern {
+                        } else {
+                            let regex = Regex::new(cmd_pattern).unwrap();
+                            if !regex.is_match(command) {
+                                continue;
+                            }
+                        }
+                    }
+
+                    if let (Some(start), Some(end)) = (rule.start_time, rule.end_time) {
+                        if current_time < start || current_time > end {
+                            continue;
+                        }
+                    }
+
+                    return false; // Deny access if the deny rule matches
+                }
+            }
+        }
+
+        // Then, check for allow rules
         for rule in sorted_rules {
             let user_match = match (&rule.user, &rule.group) {
                 (Some(u), _) if u == user => true,
@@ -89,7 +128,7 @@ impl Config {
                 }
             }
 
-            return true;
+            return true;  // Allow access if the allow rule matches
         }
 
         false
@@ -98,7 +137,7 @@ impl Config {
 
 fn parse_rule(line: &str) -> Option<Rule> {
     let tokens: Vec<&str> = line.split_whitespace().collect();
-    if tokens.is_empty() || tokens[0] != "permit" {
+    if tokens.is_empty() {
         return None;
     }
 
@@ -109,8 +148,20 @@ fn parse_rule(line: &str) -> Option<Rule> {
     let mut priority = None;
     let mut start_time = None;
     let mut end_time = None;
-    let mut i = 1;
+    let mut deny = false;
+    let mut i = 0;
 
+    // Check for deny or allow
+    if tokens[i] == "deny" {
+        deny = true;
+        i += 1;
+    } else if tokens[i] != "allow" {
+        return None;
+    } else {
+        i += 1;
+    }
+
+    // Parse other parts of the rule
     if i < tokens.len() {
         if tokens[i].starts_with(':') {
             group = Some(tokens[i][1..].to_string());
@@ -163,6 +214,6 @@ fn parse_rule(line: &str) -> Option<Rule> {
         priority,
         start_time,
         end_time,
+        deny,
     })
 }
-
