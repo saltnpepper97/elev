@@ -50,8 +50,6 @@ fn main() {
 
     // Initialize authentication state
     let mut auth_state = AuthState::new(config.timeout);
-    auth_state.username = current_user.clone(); // Save the current user
-    auth_state.groups = groups.clone(); // Save the current groups
 
     // Use instance method for checking permission
     if !config.is_permitted(&current_user, &groups, target_user, command) {
