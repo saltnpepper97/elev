@@ -19,14 +19,15 @@ pub struct AuthState {
 impl AuthState {
     pub fn new(timeout: Duration, username: String, groups: Vec<String>) -> Self {
         let last_authenticated = load_last_auth(&username);
+        let roles = get_roles_for_user(&username);
         AuthState {
             last_authenticated,
             timeout,
             username,
             groups,
+            roles,
             failed_attempts: 0,
             lockout_time: None,
-            roles,
         }
     }
 
@@ -89,6 +90,14 @@ fn store_auth_timestamp(user: &str) {
     let path = auth_timestamp_path(user);
     let _ = create_dir_all("/run/nexus");
     let _ = write(path, format!("{}", now));
+}
+
+fn get_roles_for_user(username: &str) -> Vec<String> {
+    match username {
+        "admin" => vec!["admin".to_string(), "developer".to_string()],
+        "user1" => vec!["user".to_string()],
+        _ => vec![],  // Default case for unknown users
+    }
 }
 
 pub fn prompt_password() -> Option<String> {
