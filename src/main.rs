@@ -11,6 +11,24 @@ use util::get_user_groups;
 use auth::{verify_password, prompt_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
 use nix::unistd::{getuid, geteuid};
+use std::ffi::CStr;
+use std::os::raw::c_char;
+
+/// Retrieve the real (invoking) user's username via their real UID.
+fn real_username() -> String {
+    // Get the real UID
+    let uid = getuid().as_raw() as libc::uid_t;
+    unsafe {
+        let pw = libc::getpwuid(uid);
+        if pw.is_null() {
+            return "unknown".into();
+        }
+        let name_ptr: *const c_char = (*pw).pw_name;
+        CStr::from_ptr(name_ptr)
+            .to_string_lossy()
+            .into_owned()
+    }
+}
 
 fn main() {
     // Check for correct usage
@@ -56,9 +74,14 @@ fn main() {
         .get_matches();
 
     // Initialize logging
-    let verbose = *matches.get_one::<bool>("verbose").unwrap_or(&false);  
+    let verbose = *matches.get_one::<bool>("verbose").unwrap_or(&false);
     init_logger(verbose);
-    
+
+    // Who invoked elev (real user)
+    let current_user = real_username();
+    let groups = get_user_groups(&current_user);
+
+    // Who to run command as
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
 
     let command_and_args = matches
@@ -69,14 +92,9 @@ fn main() {
     let command = command_and_args[0].as_str();
     let args: Vec<&str> = command_and_args[1..].iter().map(|s| s.as_str()).collect();
 
-    let current_user = whoami::username();
-    let groups = get_user_groups(&current_user);
-
     log_info(&format!(
         "elev invoked by '{}' to run '{}' as '{}'",
-        current_user,
-        command,
-        target_user
+        current_user, command, target_user
     ));
 
     let config = Config::load("/etc/elev.conf").unwrap_or_else(|e| {
@@ -85,15 +103,15 @@ fn main() {
     });
 
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
-
     let allowed_roles = auth_state.roles.clone();
 
-    // Check permissions, including the target group for proper validation
+    // Check permissions
     if !config.is_permitted(&current_user, &groups, target_user, command, &allowed_roles) {
         log_error(&format!("elev: Permission denied for '{}'", current_user));
         exit(1);
     }
 
+    // Enforce timeout and password
     if !auth_state.check_timeout() {
         log_warn("Authentication timeout expired, re-enter password.");
         let password = prompt_password(&config).unwrap_or_default();
