@@ -23,42 +23,13 @@ pub struct Config {
 }
 
 impl Config {
-    // The load function is responsible for loading and parsing the configuration file.
-    pub fn load(path: &str) -> std::io::Result<Self> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-
-        let mut rules = Vec::new();
-        let mut timeout = Duration::from_secs(0); // Default timeout
-
-        for line in reader.lines() {
-            let line = line?;
-            let trimmed = line.trim();
-
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue; // Skip comments and empty lines
-            }
-
-            if trimmed.starts_with("timeout") {
-                let parts: Vec<&str> = trimmed.split_whitespace().collect();
-                if parts.len() == 2 {
-                    timeout = Duration::from_secs(parts[1].parse().unwrap_or(0)); // Timeout in seconds
-                }
-            } else if let Some(rule) = parse_rule(trimmed) {
-                rules.push(rule);
-            }
-        }
-
-        Ok(Config { rules, timeout })
-    }
-
     pub fn is_permitted(&self, user: &str, groups: &[String], target_user: &str, command: &str) -> bool {
         let mut sorted_rules = self.rules.clone();
         sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
 
         let current_time = Local::now().time();
 
-        // First, check for deny rules
+        // First, check for deny rules and immediately return false if any are matched
         for rule in &sorted_rules {
             if rule.deny {
                 let user_match = match (&rule.user, &rule.group) {
