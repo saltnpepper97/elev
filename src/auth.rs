@@ -168,7 +168,7 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
                 // Output the failure message and remaining attempts to the terminal
                 eprintln!("Failed login attempt #{} for user: {}", attempts, user);
                 if attempts < MAX_ATTEMPTS {
-                    eprintln!("Incorrect password. You have {} more attempts.", MAX_ATTEMPTS - attempts);
+                    eprintln!("Incorrect password. You have {} more attempt(s).", MAX_ATTEMPTS - attempts);
                 }
             } else {
                 // User canceled or entered no password
@@ -177,7 +177,7 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
             }
         }
 
-        eprintln!("User '{}' failed to authenticate after {} attempts.", user, MAX_ATTEMPTS);
+        eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
         return false;
     }
 
