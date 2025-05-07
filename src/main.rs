@@ -57,13 +57,15 @@ fn main() {
         exit(1);
     }
 
-    // Prompt for password and verify
-    let password = prompt_password().unwrap_or_default();
-    if !verify_password(&password, &current_user, &mut auth_state) {
-        eprintln!("Authentication failed");
-        exit(1);
+    // Prompt for password and verify if timeout is reached
+    if !auth_state.check_timeout() {
+        let password = prompt_password().unwrap_or_default();
+        if !verify_password(&password, &current_user, &mut auth_state) {
+            eprintln!("Authentication failed");
+            exit(1);
+        }
     }
-
+    
     // Switch to target user if needed
     if target_user != current_user {
         exec::switch_user(target_user).unwrap_or_else(|e| {
