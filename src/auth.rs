@@ -4,7 +4,7 @@ use std::fs::{read_to_string, write, create_dir_all};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use logs::{log_info, log_warn, log_error};  // Add the log imports
+use crate::logs::{log_info, log_warn, log_error};  // Add the log imports
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
