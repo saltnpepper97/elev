@@ -31,9 +31,9 @@
    ```
 
 2. Run the installer from the project root:
-
-./install.sh
-
+   ```
+   ./install.sh
+   ```
 
 
 This script will:
