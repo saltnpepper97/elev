@@ -78,7 +78,6 @@ pub fn run_command(
     command.env("PATH", path);
     command.env("HOME", home);
     command.env("DEBIAN_FRONTEND", frontend);
-    command.env("APT_CONFIG", apt_config);
 
     // Log the command and the environment setup
     log_info(&format!(
