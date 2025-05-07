@@ -12,6 +12,9 @@ use auth::{verify_password, prompt_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
 
 fn main() {
+    // Initialize logging
+    init_logger();  // Now logging is ready
+
     let matches = Command::new("nexus")
         .arg(
             Arg::new("user")
@@ -53,7 +56,7 @@ fn main() {
 
     // Load the config
     let config = Config::load("/etc/nexus.conf").unwrap_or_else(|e| {
-        eprintln!("Failed to load config: {}", e);
+        log_error(&format!("Failed to load config: {}", e));  // Log the error
         exit(1);
     });
 
@@ -62,16 +65,16 @@ fn main() {
 
     // Use instance method for checking permission
     if !config.is_permitted(&current_user, &groups, target_user, None, command) {
-        eprintln!("Nexus: Permission denied for '{}'", current_user);
+        log_error(&format!("Nexus: Permission denied for '{}'", current_user));  // Log permission denial
         exit(1);
     }
 
     // If timeout expired, prompt for the password
     if !auth_state.check_timeout() {
-        eprintln!("Authentication timeout expired, re-enter password.");
+        log_warn("Authentication timeout expired, re-enter password.");  // Log warning
         let password = prompt_password().unwrap_or_default();
         if !verify_password(&password, &current_user, &mut auth_state) {
-            eprintln!("Authentication failed");
+            log_error("Authentication failed");  // Log authentication failure
             exit(1);
         }
     }
@@ -79,14 +82,14 @@ fn main() {
     // Switch to target user if needed
     if target_user != current_user {
         exec::switch_user(target_user).unwrap_or_else(|e| {
-            eprintln!("Failed to switch user: {}", e);
+            log_error(&format!("Failed to switch user: {}", e));  // Log user switch failure
             exit(1);
         });
     }
 
     // Run the command with timeout and permission checks
     exec::run_command(&config, &mut auth_state, command, &args).unwrap_or_else(|e| {
-        eprintln!("Command failed: {}", e);
+        log_error(&format!("Command failed: {}", e));  // Log command failure
         exit(1);
     });
 }
