@@ -44,6 +44,8 @@ fn main() {
             Arg::new("command")
                 .required(true)
                 .num_args(1..)
+                .allow_hyphen_values(true)
+                .trailing_var_arg(true)
                 .value_name("COMMAND")
                 .help("Command to execute"),
         )
