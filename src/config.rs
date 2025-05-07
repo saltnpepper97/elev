@@ -1,5 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use regex::Regex;
+use chrono::{NaiveTime, Local};
 
 /// Represents a single permission rule from the config.
 #[derive(Debug)]
@@ -8,6 +10,9 @@ pub struct Rule {
     pub group: Option<String>,
     pub as_user: Option<String>,
     pub command: Option<String>,
+    pub priority: Option<u8>,
+    pub start_time: Option<NaiveTime>,
+    pub end_time: Option<NaiveTime>,
 }
 
 /// Represents the full config file
@@ -40,7 +45,13 @@ impl Config {
     }
 
     pub fn is_permitted(&self, user: &str, groups: &[String], target_user: &str, command: &str) -> bool {
-        for rule in &self.rules {
+        // Sort the rules by priority (descending order)
+        let mut sorted_rules = self.rules.clone();
+        sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+        let current_time = Local::now().time();
+
+        for rule in sorted_rules {
             let user_match = match (&rule.user, &rule.group) {
                 (Some(u), _) if u == user => true,
                 (_, Some(g)) if groups.contains(g) => true,
@@ -57,8 +68,16 @@ impl Config {
                 }
             }
 
-            if let Some(cmd) = &rule.command {
-                if cmd != command {
+            if let Some(cmd_pattern) = &rule.command {
+                let regex = Regex::new(cmd_pattern).unwrap(); // You could handle error here more gracefully
+                if !regex.is_match(command) {
+                    continue;
+                }
+            }
+
+            // Check time-based access
+            if let (Some(start), Some(end)) = (rule.start_time, rule.end_time) {
+                if current_time < start || current_time > end {
                     continue;
                 }
             }
@@ -80,6 +99,9 @@ fn parse_rule(line: &str) -> Option<Rule> {
     let mut group = None;
     let mut as_user = None;
     let mut command = None;
+    let mut priority = None;
+    let mut start_time = None;
+    let mut end_time = None;
     let mut i = 1;
 
     if i < tokens.len() {
@@ -105,6 +127,22 @@ fn parse_rule(line: &str) -> Option<Rule> {
                     command = Some(tokens[i].to_string());
                 }
             }
+            "priority" => {
+                i += 1;
+                if i < tokens.len() {
+                    priority = Some(tokens[i].parse().unwrap_or(0)); // Default priority 0
+                }
+            }
+            "time" => {
+                i += 1;
+                if i < tokens.len() {
+                    let times: Vec<&str> = tokens[i].split('-').collect();
+                    if times.len() == 2 {
+                        start_time = Some(NaiveTime::parse_from_str(times[0], "%H:%M").unwrap());
+                        end_time = Some(NaiveTime::parse_from_str(times[1], "%H:%M").unwrap());
+                    }
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -115,5 +153,9 @@ fn parse_rule(line: &str) -> Option<Rule> {
         group,
         as_user,
         command,
+        priority,
+        start_time,
+        end_time,
     })
 }
+
