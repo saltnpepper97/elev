@@ -19,7 +19,7 @@ pub struct Rule {
 pub struct Config {
     pub rules: Vec<Rule>,
     pub timeout: Duration,
-    pub password_required: bool, // New field for password requirement
+    pub password_required: bool,
 }
 
 impl Config {
@@ -28,8 +28,8 @@ impl Config {
         let file = File::open(filename)?;
         let reader = BufReader::new(file);
         let mut rules = Vec::new();
-        let mut timeout = Duration::from_secs(60);  // Default timeout
-        let mut password_required = true;  // Default password required
+        let mut timeout = Duration::from_secs(60);
+        let mut password_required = true;
 
         for line in reader.lines() {
             let line = line?;
@@ -38,7 +38,7 @@ impl Config {
             }
 
             // Check for timeout setting in the config file
-            if let Some(timeout_str) = line.strip_prefix("timeout=") {
+            if let Some(timeout_str) = line.strip_prefix("timeout ") {
                 if let Ok(timeout_value) = timeout_str.trim().parse::<u64>() {
                     timeout = Duration::from_secs(timeout_value);
                     log_info(&format!("Loaded timeout value from config: {} seconds", timeout_value));
@@ -46,7 +46,7 @@ impl Config {
             }
 
             // Check for password_required setting in the config file
-            if let Some(password_str) = line.strip_prefix("password_required=") {
+            if let Some(password_str) = line.strip_prefix("password_required ") {
                 if let Ok(pass_req) = password_str.trim().parse::<bool>() {
                     password_required = pass_req;
                     log_info(&format!("Loaded password_required value from config: {}", password_required));

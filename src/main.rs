@@ -96,8 +96,8 @@ fn main() {
 
     if !auth_state.check_timeout() {
         log_warn("Authentication timeout expired, re-enter password.");
-        let password = prompt_password().unwrap_or_default();
-        if !verify_password(&password, &current_user, &mut auth_state) {
+        let password = prompt_password(&config).unwrap_or_default();
+        if !verify_password(&password, &current_user, &mut auth_state, &config) {
             log_error("Authentication failed");
             exit(1);
         }
