@@ -1,6 +1,6 @@
-# nexus
+# elev
 
-**nexus** is a minimal, secure privilege elevation tool written in Rust — inspired by `doas` and `sudo`, but designed with modern practices and simplicity in mind.
+**elev** is a minimal, secure privilege elevation tool written in Rust — inspired by `doas` and `sudo`, but designed with modern practices and simplicity in mind.
 
 ---
 
@@ -19,7 +19,7 @@
 
 ## 🛠️ Building
 
-To build `nexus`, you'll need Rust > 1.70 installed. Then run this command:
+To build `elev`, you'll need Rust > 1.70 installed. Then run this command:
 
 ```bash
 cargo build --release
