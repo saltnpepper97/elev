@@ -25,24 +25,6 @@ pub fn run_command(
     args: &[&str],
 ) -> Result<ExitStatus, std::io::Error> {
 
-    // Ensure user has permission to run the command
-    if !config.is_permitted(
-        &auth_state.username,
-        &auth_state.groups,
-        target_user,
-        cmd,
-        &auth_state.roles,
-    ) {
-        log_error(&format!(
-            "Permission denied for user '{}' to run command '{}'",
-            auth_state.username, cmd
-        ));
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied,
-            "Permission denied",
-        ));
-    }
-
     // Handle timeout check
     if !auth_state.check_timeout() {
         log_warn(&format!(

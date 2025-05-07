@@ -109,7 +109,6 @@ fn main() {
 
     // Check permissions
     if !config.is_permitted(&current_user, &groups, target_user, command, &allowed_roles) {
-        log_error(&format!("elev: Permission denied for '{}'", current_user));
         exit(1);
     }
 
