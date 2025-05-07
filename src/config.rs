@@ -48,7 +48,6 @@ impl Config {
         user: &str,
         groups: &[String],
         target_user: &str,
-        target_group: Option<&str>,
         command: &str,
         user_roles: &[String],
     ) -> bool {
@@ -57,14 +56,14 @@ impl Config {
         rules.sort_by(|a, b| b.priority.cmp(&a.priority));
 
         for rule in &rules {
-            if rule.deny && rule.matches(user, groups, target_user, target_group, command, user_roles) {
+            if rule.deny && rule.matches(user, groups, target_user, command, user_roles) {
                 log_warn(&format!("Permission denied for user '{}' to run command '{}'", user, command));  // Log deny rule match
                 return false;
             }
         }
 
         for rule in &rules {
-            if !rule.deny && rule.matches(user, groups, target_user, target_group, command, user_roles) {
+            if !rule.deny && rule.matches(user, groups, target_user, command, user_roles) {
                 log_info(&format!("Permission granted for user '{}' to run command '{}'", user, command));  // Log allow rule match
                 return true;
             }
@@ -81,7 +80,6 @@ impl Rule {
         user: &str,
         groups: &[String],
         target_user: &str,
-        target_group: Option<&str>,
         command: &str,
         user_roles: &[String],
     ) -> bool {

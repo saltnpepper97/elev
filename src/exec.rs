@@ -24,14 +24,12 @@ pub fn run_command(
     args: &[&str],
 ) -> Result<ExitStatus, std::io::Error> {
     let target_user = &auth_state.username;
-    let target_group = auth_state.groups.first();
 
     // Ensure user has permission to run the command
     if !config.is_permitted(
         &auth_state.username,
         &auth_state.groups,
         "root",
-        target_group.as_deref().map(|x| x.as_str()),
         cmd,
         &auth_state.roles,
     ) {
