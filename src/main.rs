@@ -30,7 +30,6 @@ fn main() {
         .get_matches();
 
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
-
     let command_and_args = matches
         .get_many::<String>("command")
         .expect("Command is required")
@@ -57,13 +56,16 @@ fn main() {
         exit(1);
     }
 
-    // Prompt for password and verify if timeout is reached
+    // If timeout expired, prompt for the password
     if !auth_state.check_timeout() {
+        eprintln!("Authentication timeout expired, re-enter password.");
         let password = prompt_password().unwrap_or_default();
         if !verify_password(&password, &current_user, &mut auth_state) {
             eprintln!("Authentication failed");
             exit(1);
         }
+    } else {
+        println!("Authenticated within timeout window.");
     }
     
     // Switch to target user if needed
