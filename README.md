@@ -49,7 +49,7 @@ The default configuration file is located at `/etc/elev.conf`. Define rules usin
 
 ```conf
 # Allow user "alice" to run "journalctl" as root
-permit alice as root cmd journalctl
+allow alice cmd *journalctl
 
 # Deny everyone from running "shutdown"
 deny all cmd shutdown
