@@ -2,14 +2,14 @@ mod config;
 mod auth;
 mod exec;
 mod util;
-mod log;
+mod logs;
 
 use clap::{Arg, Command};
 use config::Config;
 use std::process::exit;
 use util::get_user_groups;
 use auth::{verify_password, prompt_password, AuthState};
-use log::{init_logger, log_info, log_warn, log_error};
+use logs::{init_logger, log_info, log_warn, log_error};
 
 fn main() {
     let matches = Command::new("nexus")
