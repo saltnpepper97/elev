@@ -90,9 +90,6 @@ fn main() {
         }
     }
 
-    // 🧠 DEFER USER SWITCH TO INSIDE exec::run_command
-    // To reduce surface area and follow exec-based model like `doas`
-
     exec::run_command(&config, &mut auth_state, command, &args).unwrap_or_else(|e| {
         log_error(&format!("Command failed: {}", e));
         exit(1);

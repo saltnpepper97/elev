@@ -2,8 +2,6 @@ use syslog::{BasicLogger, Facility, Formatter3164};
 use std::sync::{OnceLock, Mutex};
 use log::{info, warn, error};
 
-static LOGGER: OnceLock<Mutex<BasicLogger>> = OnceLock::new();
-
 pub fn init_logger() {
     let formatter = Formatter3164 {
         facility: Facility::LOG_AUTH,
