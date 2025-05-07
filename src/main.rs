@@ -11,8 +11,8 @@ use util::get_user_groups;
 use auth::{verify_password, prompt_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
 use nix::unistd::{getuid, geteuid};
+use nix::libc;
 use std::ffi::CStr;
-use std::os::raw::c_char;
 
 /// Retrieve the real (invoking) user's username via their real UID.
 fn real_username() -> String {
