@@ -48,26 +48,6 @@ Create a default config at /etc/elev.conf
 
 ---
 
-Configuration
-
-The default configuration file is located at `/etc/elev
-
-
-   ```
-2. **Run the installer** from the project root:
-
-   ```bash
-   ./install.sh
-   ```
-
-This script will:
-
-* Compile `elev` in release mode
-* Install the binary to `/usr/local/bin/elev`
-* Create a default config at `/etc/elev.conf`
-
----
-
 ## Configuration
 
 The default configuration file is located at `/etc/elev.conf`. Define rules using human-readable syntax. Available keywords:
