@@ -105,12 +105,6 @@ fn main() {
     });
 
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
-    let allowed_roles = auth_state.roles.clone();
-
-    // Check permissions
-    if !config.is_permitted(&current_user, &groups, target_user, command, &allowed_roles) {
-        exit(1);
-    }
 
     // Enforce timeout and password
     if !auth_state.check_timeout() {
