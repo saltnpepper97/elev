@@ -3,7 +3,7 @@ mod auth;
 mod exec;
 mod util;
 
-use clap::{Arg, ArgAction, Command}; // Assuming you're using clap
+use clap::{Arg, Command}; // Assuming you're using clap
 use config::Config;
 use std::process::exit;
 use util::get_user_groups;
@@ -15,12 +15,15 @@ fn main() {
                 .short('u')
                 .long("user")
                 .help("Target user to run command as")
-                .takes_value(true),
+                .value_name("USER")
+                .value_parser(clap::value_parser!(String))
+                .default_value("root"),
         )
         .arg(
             Arg::new("command")
                 .required(true)
-                .multiple_values(true)
+                .num_args(1..)
+                .value_name("COMMAND")
                 .help("Command to execute"),
         )
         .get_matches();
