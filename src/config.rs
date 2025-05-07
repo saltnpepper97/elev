@@ -57,13 +57,13 @@ impl Config {
         let current_weekday = now.weekday();
 
         for rule in &rules {
-            if rule.deny && rule.matches(user, groups, target_user, command, current_time, current_weekday) {
+            if rule.deny && rule.matches(user, groups, target_user, target_group command, current_time, current_weekday) {
                 return false;
             }
         }
 
         for rule in &rules {
-            if !rule.deny && rule.matches(user, groups, target_user, command, current_time, current_weekday) {
+            if !rule.deny && rule.matches(user, groups, target_user, target_group command, current_time, current_weekday) {
                 return true;
             }
         }
@@ -78,7 +78,7 @@ impl Rule {
         user: &str,
         groups: &[String],
         target_user: &str,
-        target_group: Option<&str>
+        target_group: Option<&str>,
         command: &str,
         now: NaiveTime,
         weekday: Weekday,
