@@ -1,4 +1,4 @@
-use pam::client::Client;
+use pam::Authenticator;  // Add this import to use Authenticator
 use std::fs::{read_to_string, write, create_dir_all};
 use std::io::Write;
 use std::path::PathBuf;
@@ -153,10 +153,13 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
 
             // Check if password is empty or canceled (user didn't enter a password)
             if let Some(password) = password {
-                let mut client = Client::with_password("elev").ok().expect("Failed to create client");
-                client.conversation_mut().set_credentials(user, &password);
+                // Use pam::Authenticator for handling password-based authentication
+                let mut auth = Authenticator::with_password("elev")
+                    .expect("Failed to create PAM Authenticator");
 
-                if client.authenticate().is_ok() {
+                auth.get_handler().set_credentials(user, &password);
+
+                if auth.authenticate().is_ok() {
                     auth_state.update_last_authenticated();
                     log_info(&format!("Successful login for user: {}", user));  // Log successful login
                     return true;
@@ -184,3 +187,4 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
     log_info("Password authentication skipped.");
     true // If password is not required, consider it successful
 }
+
