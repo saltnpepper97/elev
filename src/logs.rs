@@ -1,7 +1,7 @@
 use syslog::{BasicLogger, Facility, Formatter3164};
 use log::{info, warn, error};
 
-pub fn init_logger() {
+pub fn init_logger(verbose: bool) {
     let formatter = Formatter3164 {
         facility: Facility::LOG_AUTH,
         hostname: None,

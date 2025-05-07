@@ -10,12 +10,9 @@ use std::process::exit;
 use util::get_user_groups;
 use auth::{verify_password, prompt_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
-use nix::unistd::{getuid, geteuid}; // NEW
+use nix::unistd::{getuid, geteuid};
 
 fn main() {
-    // Initialize logging
-    init_logger();
-
     // Check for correct usage
     let uid = getuid().as_raw();
     let euid = geteuid().as_raw();
@@ -49,8 +46,19 @@ fn main() {
                 .value_name("COMMAND")
                 .help("Command to execute"),
         )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .help("Enable verbose logging")
+                .action(clap::ArgAction::SetTrue),
+        )
         .get_matches();
 
+    // Initialize logging
+    let verbose = *matches.get_one::<bool>("verbose").unwrap_or(&false);  
+    init_logger(verbose);
+    
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
 
     let command_and_args = matches
