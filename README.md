@@ -6,11 +6,14 @@
 
 ## 🚀 Features
 
-- 🔐 Written in safe Rust
-- ⚡ Fast and lightweight
-- ✅ Simple configuration
-- 🧩 Built with solarpunk and cybersecurity in mind
-- 🔧 Customizable and extensible for different workflows
+- 🔐 **Secure**: Written in safe, memory-checked Rust to prevent common vulnerabilities.
+- ⚡ **Fast & Lightweight**: Focuses on minimalism, providing a swift and responsive experience.
+- ✅ **Simple Configuration**: Easy-to-understand rule syntax for allowing and denying commands with fine-grained control.
+- 🧩 **Customizable & Extensible**: Designed to be flexible and modifiable for various workflows and use cases.
+- 🕒 **Time-Based Access**: Rules can be set to be active during specific time windows.
+- 🚫 **Advanced Deny Logic**: Deny rules can override even `root` or other allow rules, ensuring precise control over command execution.
+- 🔧 **Wildcard & Regex Support**: Supports both wildcards and regular expressions for flexible command matching.
+- 🛡️ **Cybersecurity Focus**: Built with modern cybersecurity practices and solarpunk principles in mind, prioritizing safe technology and user autonomy.
 
 ---
 
@@ -20,3 +23,4 @@ To build `nexus`, you'll need Rust > 1.70 installed. Then run this command:
 
 ```bash
 cargo build --release
+
