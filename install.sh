@@ -2,7 +2,7 @@
 set -e
 
 BIN_NAME="elev"
-TARGET_BIN="/usr/local/bin/$BIN_NAME"
+TARGET_BIN="/usr/bin/$BIN_NAME"
 CONF_SRC="./examples/elev.conf"
 CONF_DEST="/etc/elev.conf"
 
