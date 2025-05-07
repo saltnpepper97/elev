@@ -3,6 +3,7 @@ use std::io::{BufRead, BufReader};
 use regex::Regex;
 use chrono::{Local, Datelike, NaiveTime, Weekday};
 use std::time::Duration;
+use logs::{log_info, log_warn, log_error};  // Import the log functions
 
 #[derive(Clone, Debug)]
 pub struct Rule {
@@ -25,6 +26,7 @@ pub struct Config {
 
 impl Config {
     pub fn load(filename: &str) -> Result<Self, std::io::Error> {
+        log_info(&format!("Loading configuration from file: {}", filename));  // Log configuration load
         let file = File::open(filename)?;
         let reader = BufReader::new(file);
         let mut rules = Vec::new();
@@ -35,6 +37,8 @@ impl Config {
                 rules.push(rule);
             }
         }
+
+        log_info(&format!("Loaded {} rules from configuration", rules.len()));  // Log the number of rules loaded
 
         Ok(Config {
             rules,
@@ -50,6 +54,7 @@ impl Config {
         target_group: Option<&str>,
         command: &str,
     ) -> bool {
+        log_info(&format!("Checking permission for user '{}' to run command '{}'", user, command));  // Log permission check
         let mut rules = self.rules.clone();
         rules.sort_by(|a, b| b.priority.cmp(&a.priority));
         let now = Local::now();
@@ -58,16 +63,19 @@ impl Config {
 
         for rule in &rules {
             if rule.deny && rule.matches(user, groups, target_user, target_group, command, current_time, current_weekday) {
+                log_warn(&format!("Permission denied for user '{}' to run command '{}'", user, command));  // Log deny rule match
                 return false;
             }
         }
 
         for rule in &rules {
             if !rule.deny && rule.matches(user, groups, target_user, target_group, command, current_time, current_weekday) {
+                log_info(&format!("Permission granted for user '{}' to run command '{}'", user, command));  // Log allow rule match
                 return true;
             }
         }
 
+        log_error(&format!("Permission check failed for user '{}' to run command '{}'", user, command));  // Log permission failure
         false
     }
 }
