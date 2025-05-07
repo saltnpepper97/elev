@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use regex::Regex;
-use chrono::{Local, NaiveTime, Weekday};
+use chrono::{Local, Datelike, NaiveTime, Weekday};
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
@@ -47,6 +47,7 @@ impl Config {
         user: &str,
         groups: &[String],
         target_user: &str,
+        target_group: Option<&str>,
         command: &str,
     ) -> bool {
         let mut rules = self.rules.clone();
@@ -77,6 +78,7 @@ impl Rule {
         user: &str,
         groups: &[String],
         target_user: &str,
+        target_group: Option<&str>
         command: &str,
         now: NaiveTime,
         weekday: Weekday,
