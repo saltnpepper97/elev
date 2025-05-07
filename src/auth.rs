@@ -1,6 +1,6 @@
 use pam::client::Client;
 use std::fs::{read_to_string, write, create_dir_all};
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::logs::{log_info, log_warn, log_error, log_debug};
