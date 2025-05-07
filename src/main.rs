@@ -79,7 +79,7 @@ fn main() {
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
 
     // Check permissions, including the target group for proper validation
-    if !config.is_permitted(&current_user, &groups, target_user, None, command) {
+    if !config.is_permitted(&current_user, &groups, target_user, None, command, &allowed_roles) {
         log_error(&format!("elev: Permission denied for '{}'", current_user));
         exit(1);
     }

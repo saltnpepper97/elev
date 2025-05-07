@@ -13,6 +13,7 @@ pub struct AuthState {
     pub groups: Vec<String>,
     pub failed_attempts: u32,
     pub lockout_time: Option<Instant>,
+    pub roles: Vec<String>,
 }
 
 impl AuthState {
@@ -25,6 +26,7 @@ impl AuthState {
             groups,
             failed_attempts: 0,
             lockout_time: None,
+            roles,
         }
     }
 

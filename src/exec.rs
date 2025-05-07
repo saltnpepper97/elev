@@ -33,6 +33,7 @@ pub fn run_command(
         "root",
         target_group.as_deref().map(|x| x.as_str()),
         cmd,
+        &auth_state.roles,
     ) {
         log_error(&format!(
             "Permission denied for user '{}' to run command '{}'",
