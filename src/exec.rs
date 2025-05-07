@@ -1,22 +1,3 @@
-use nix::unistd::{setuid, User};
-use std::process::{Command, ExitStatus};
-use crate::config::Config;
-use crate::auth::AuthState;
-use logs::{log_info, log_warn, log_error};  // Import the log functions
-
-pub fn switch_user(target_user: &str) -> Result<(), String> {
-    match User::from_name(target_user).map_err(|e| e.to_string())? {
-        Some(user_struct) => {
-            log_info(&format!("Switching to user '{}'", target_user));  // Log the user switch action
-            setuid(user_struct.uid).map_err(|e| e.to_string())
-        },
-        None => {
-            log_error(&format!("User '{}' not found", target_user));  // Log error if user not found
-            Err(format!("User '{}' not found", target_user))
-        },
-    }
-}
-
 pub fn run_command(config: &Config, auth_state: &mut AuthState, cmd: &str, args: &[&str]) -> Result<ExitStatus, std::io::Error> {
     let target_group = auth_state.groups.first();
 
@@ -32,7 +13,13 @@ pub fn run_command(config: &Config, auth_state: &mut AuthState, cmd: &str, args:
         return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "Authentication timeout expired"));
     }
 
-    // Proceed with running the command
+    // Set environment variables if needed
+    let mut command = Command::new(cmd);
+    command.args(args);
+    command.env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"); // Set PATH for root
+    command.env("HOME", "/root"); // Set HOME for root
+
     log_info(&format!("Running command '{}' with arguments {:?}", cmd, args));  // Log the command execution
-    Command::new(cmd).args(args).status()
+
+    command.status()
 }
