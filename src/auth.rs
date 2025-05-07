@@ -159,14 +159,15 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, c
 
             attempts += 1;
             auth_state.increment_failed_attempts();
-            log_error(&format!("Failed login attempt #{} for user: {}", attempts, user));  // Log failed login attempt
 
+            // Output the failure message and remaining attempts to the terminal
+            eprintln!("Failed login attempt #{} for user: {}", attempts, user);
             if attempts < MAX_ATTEMPTS {
-                log_warn(&format!("Incorrect password. You have {} more attempts.", MAX_ATTEMPTS - attempts));
+                eprintln!("Incorrect password. You have {} more attempts.", MAX_ATTEMPTS - attempts);
             }
         }
 
-        log_warn(&format!("User '{}' failed to authenticate after {} attempts.", user, MAX_ATTEMPTS));
+        eprintln!("User '{}' failed to authenticate after {} attempts.", user, MAX_ATTEMPTS);
         return false;
     }
 
