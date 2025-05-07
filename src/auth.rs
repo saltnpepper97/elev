@@ -1,19 +1,22 @@
 use pam::client::Client;
 use rpassword::read_password;
 use std::io::{self, Write};
-use chrono::{Local, NaiveTime};
 use std::time::{Duration, Instant};
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
     pub timeout: Duration,
+    pub username: String,
+    pub groups: Vec<String>,
 }
 
 impl AuthState {
-    pub fn new(timeout: Duration) -> Self {
+    pub fn new(timeout: Duration, username: String, groups: Vec<String>) -> Self {
         AuthState {
             last_authenticated: None,
             timeout,
+            username,
+            groups
         }
     }
 
