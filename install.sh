@@ -3,8 +3,8 @@ set -e
 
 BIN_NAME="nexus"
 TARGET_BIN="/usr/local/bin/$BIN_NAME"
-CONF_SRC="./examples/nexus.conf"
-CONF_DEST="/etc/nexus.conf"
+CONF_SRC="./examples/elev.conf"
+CONF_DEST="/etc/elev.conf"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root."
