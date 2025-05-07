@@ -12,9 +12,7 @@ pub struct Rule {
     pub as_user: Option<String>,
     pub cmd_regex: Option<Regex>,
     pub priority: u8,
-    pub start_time: Option<NaiveTime>,
-    pub end_time: Option<NaiveTime>,
-    pub days: Option<Vec<Weekday>>,
+    pub allowed_roles: Option<Vec<String>>,
     pub deny: bool,
 }
 
@@ -53,23 +51,21 @@ impl Config {
         target_user: &str,
         target_group: Option<&str>,
         command: &str,
+        user_roles: &[String],
     ) -> bool {
         log_info(&format!("Checking permission for user '{}' to run command '{}'", user, command));  // Log permission check
         let mut rules = self.rules.clone();
         rules.sort_by(|a, b| b.priority.cmp(&a.priority));
-        let now = Local::now();
-        let current_time = now.time();
-        let current_weekday = now.weekday();
 
         for rule in &rules {
-            if rule.deny && rule.matches(user, groups, target_user, target_group, command, current_time, current_weekday) {
+            if rule.deny && rule.matches(user, groups, target_user, target_group, command, user_roles) {
                 log_warn(&format!("Permission denied for user '{}' to run command '{}'", user, command));  // Log deny rule match
                 return false;
             }
         }
 
         for rule in &rules {
-            if !rule.deny && rule.matches(user, groups, target_user, target_group, command, current_time, current_weekday) {
+            if !rule.deny && rule.matches(user, groups, target_user, target_group, command, user_roles) {
                 log_info(&format!("Permission granted for user '{}' to run command '{}'", user, command));  // Log allow rule match
                 return true;
             }
@@ -88,8 +84,7 @@ impl Rule {
         target_user: &str,
         target_group: Option<&str>,
         command: &str,
-        now: NaiveTime,
-        weekday: Weekday,
+        user_roles: &[String],
     ) -> bool {
         let user_ok = match &self.user {
             Some(u) if u != "*" => u == user,
@@ -100,13 +95,14 @@ impl Rule {
             Some(g) if g != "*" => groups.iter().any(|gr| gr == g),
             _ => true,
         };
+
         if !user_ok && !group_ok {
             return false;
         }
-
-        if let Some(group) = target_group {
-            if self.group.as_ref().map_or(false, |g| g != group) {
-                return false // If the target group doesn't match, return false
+        
+        if let Some(allowed_roles) = &self.allowed_roles {
+            if !user_roles.iter().any(|role| allowed_roles.contains(role)) {
+                return false; // Role does not match
             }
         }
 
@@ -118,18 +114,6 @@ impl Rule {
 
         if let Some(re) = &self.cmd_regex {
             if !re.is_match(command) {
-                return false;
-            }
-        }
-
-        if let (Some(start), Some(end)) = (self.start_time, self.end_time) {
-            if now < start || now > end {
-                return false;
-            }
-        }
-
-        if let Some(days) = &self.days {
-            if !days.contains(&weekday) {
                 return false;
             }
         }
@@ -180,10 +164,7 @@ fn parse_rule(line: &str) -> Option<Rule> {
     let mut as_user = None;
     let mut command_pat = None;
     let mut priority = 0;
-    let mut start_time = None;
-    let mut end_time = None;
-    let mut days = None;
-
+    let mut allowed_roles = None;  // Added roles parsing
     while i < tokens.len() {
         match tokens[i] {
             "as" if i + 1 < tokens.len() => {
@@ -198,44 +179,8 @@ fn parse_rule(line: &str) -> Option<Rule> {
                 priority = tokens[i + 1].parse().unwrap_or(0);
                 i += 2;
             }
-            "time" if i + 1 < tokens.len() => {
-                let parts: Vec<&str> = tokens[i + 1].split('-').collect();
-                if parts.len() == 2 {
-                    start_time = NaiveTime::parse_from_str(parts[0], "%H:%M").ok();
-                    end_time = NaiveTime::parse_from_str(parts[1], "%H:%M").ok();
-                }
-                i += 2;
-            }
-            "days" if i + 1 < tokens.len() => {
-                let day_str = tokens[i + 1];
-                if day_str == "*" || day_str.eq_ignore_ascii_case("all") {
-                    days = Some(vec![
-                        Weekday::Mon,
-                        Weekday::Tue,
-                        Weekday::Wed,
-                        Weekday::Thu,
-                        Weekday::Fri,
-                        Weekday::Sat,
-                        Weekday::Sun,
-                    ]);
-                } else {
-                    let parsed_days = day_str
-                        .split(',')
-                        .filter_map(|d| match d.to_lowercase().as_str() {
-                            "mon" => Some(Weekday::Mon),
-                            "tue" => Some(Weekday::Tue),
-                            "wed" => Some(Weekday::Wed),
-                            "thu" => Some(Weekday::Thu),
-                            "fri" => Some(Weekday::Fri),
-                            "sat" => Some(Weekday::Sat),
-                            "sun" => Some(Weekday::Sun),
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>();
-                    if !parsed_days.is_empty() {
-                        days = Some(parsed_days);
-                    }
-                }
+            "roles" if i + 1 < tokens.len() => {  // Roles handling
+                allowed_roles = Some(tokens[i + 1].split(',').map(String::from).collect());
                 i += 2;
             }
             _ => { i += 1; }
@@ -253,5 +198,6 @@ fn parse_rule(line: &str) -> Option<Rule> {
         Regex::new(&re_str).unwrap_or_else(|_| Regex::new("^$").unwrap())
     });
 
-    Some(Rule { user, group, as_user, cmd_regex, priority, start_time, end_time, days, deny })
+    Some(Rule { user, group, as_user, cmd_regex, priority, allowed_roles, deny })
 }
+
