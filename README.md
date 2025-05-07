@@ -6,7 +6,7 @@ elev is a minimal, secure privilege elevation tool written in Rust—designed as
 
 ## Features
 
-* 🔒 **Secure**: Implemented in Rust for memory safety and resilience against common vulnerabilities. 🤔
+* 🔒 **Secure**: Implemented in Rust for memory safety and resilience against common vulnerabilities.
 * ⚡ **Fast & Lightweight**: Minimal dependencies and a small footprint for responsive performance.
 * 📝 **Simple Configuration**: Human‑readable rule syntax for fine‑grained allow/deny policies.
 * ⏰ **Time‑Based Access**: Enable rules only during specified time windows.
