@@ -53,7 +53,7 @@ fn main() {
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
 
     // Use instance method for checking permission
-    if !config.is_permitted(&current_user, &groups, target_user, command) {
+    if !config.is_permitted(&current_user, &groups, target_user, None, command) {
         eprintln!("Nexus: Permission denied for '{}'", current_user);
         exit(1);
     }

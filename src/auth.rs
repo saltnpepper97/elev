@@ -100,7 +100,7 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -
         return false;
     }
 
-    let mut client = Client::with_password("login").ok().expect("Failed to create client");
+    let mut client = Client::with_password("nexus").ok().expect("Failed to create client");
     client.conversation_mut().set_credentials(user, password);
 
     if client.authenticate().is_ok() {
