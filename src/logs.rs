@@ -1,5 +1,5 @@
 use syslog::{BasicLogger, Facility, Formatter3164};
-use log::{info, warn, error, LevelFilter};
+use log::{info, warn, error, debug, LevelFilter};
 
 pub fn init_logger(verbose: bool) {
     let formatter = Formatter3164 {
@@ -33,3 +33,6 @@ pub fn log_error(message: &str) {
     error!("{}", message);
 }
 
+pub fn log_debug(message: &str) {
+    debug!("{}", message);
+}

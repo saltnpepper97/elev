@@ -4,7 +4,7 @@ use std::fs::{read_to_string, write, create_dir_all};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use crate::logs::{log_info, log_warn, log_error};
+use crate::logs::{log_info, log_warn, log_error, log_debug};
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
@@ -20,6 +20,12 @@ impl AuthState {
     pub fn new(timeout: Duration, username: String, groups: Vec<String>) -> Self {
         let last_authenticated = load_last_auth(&username);
         let roles = get_roles_for_user(&username);
+        
+        log_debug(&format!{
+           "Initializing AuthState for user '{}'. Timeout: {:?}, Groups: {:?}, Roles: {:?}",
+           username, timeout, groups, roles
+        });
+
         AuthState {
             last_authenticated,
             timeout,
@@ -107,6 +113,8 @@ pub fn prompt_password() -> Option<String> {
 }
 
 pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -> bool {
+    log_debug(&format!("Starting password verification for user '{}'", user));
+
     if auth_state.check_lockout() {
         log_warn(&format!("Account is temporarily locked due to too many failed login attempts for user: {}", user));
         return false;
