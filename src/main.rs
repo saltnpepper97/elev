@@ -117,6 +117,23 @@ fn main() {
     }
 
     exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
+        use std::io::ErrorKind;
+    
+        match e.kind() {
+            ErrorKind::PermissionDenied => {
+                eprintln!("elev: permission denied: '{}'", command);
+            }
+            ErrorKind::NotFound => {
+                eprintln!("elev: command not found: '{}'", command);
+            }
+            ErrorKind::TimedOut => {
+                eprintln!("elev: authentication timed out");
+            }
+            _ => {
+                eprintln!("elev: error running command '{}': {}", command, e);
+            }
+        }
+    
         log_error(&format!("Command failed: {}", e));
         exit(1);
     });
