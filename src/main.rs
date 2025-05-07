@@ -8,7 +8,7 @@ use clap::{Arg, Command};
 use config::Config;
 use std::process::exit;
 use util::get_user_groups;
-use auth::{verify_password, prompt_password, AuthState};
+use auth::{verify_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
 use nix::unistd::{getuid, geteuid};
 use nix::libc;
@@ -109,8 +109,7 @@ fn main() {
     // Enforce timeout and password
     if !auth_state.check_timeout() {
         log_warn("Authentication timeout expired, re-enter password.");
-        let password = prompt_password(&config).unwrap_or_default();
-        if !verify_password(&password, &mut auth_state, &config) {
+        if !verify_password(&current_user, &mut auth_state, &config) {
             log_error("Authentication failed");
             exit(1);
         }
