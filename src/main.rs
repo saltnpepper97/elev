@@ -3,10 +3,11 @@ mod auth;
 mod exec;
 mod util;
 
-use clap::{Arg, Command}; // Assuming you're using clap
+use clap::{Arg, Command};
 use config::Config;
 use std::process::exit;
 use util::get_user_groups;
+use auth::{verify_password, prompt_password, AuthState};
 
 fn main() {
     let matches = Command::new("nexus")
@@ -47,18 +48,25 @@ fn main() {
         exit(1);
     });
 
-    // Use instance method, not config::is_permitted
+    // Initialize authentication state
+    let mut auth_state = AuthState::new(config.timeout);
+    auth_state.username = current_user.clone(); // Save the current user
+    auth_state.groups = groups.clone(); // Save the current groups
+
+    // Use instance method for checking permission
     if !config.is_permitted(&current_user, &groups, target_user, command) {
         eprintln!("Nexus: Permission denied for '{}'", current_user);
         exit(1);
     }
 
-    let password = auth::prompt_password().unwrap_or_default();
-    if !auth::verify_password(&password, &current_user) {
+    // Prompt for password and verify
+    let password = prompt_password().unwrap_or_default();
+    if !verify_password(&password, &current_user, &mut auth_state) {
         eprintln!("Authentication failed");
         exit(1);
     }
 
+    // Switch to target user if needed
     if target_user != current_user {
         exec::switch_user(target_user).unwrap_or_else(|e| {
             eprintln!("Failed to switch user: {}", e);
@@ -66,7 +74,8 @@ fn main() {
         });
     }
 
-    exec::run_command(command, &args).unwrap_or_else(|e| {
+    // Run the command with timeout and permission checks
+    exec::run_command(&config, &mut auth_state, command, &args).unwrap_or_else(|e| {
         eprintln!("Command failed: {}", e);
         exit(1);
     });
