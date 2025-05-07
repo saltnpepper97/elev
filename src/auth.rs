@@ -1,5 +1,3 @@
-// auth.rs
-
 use pam_client2::{Context, Flag};
 use pam_client2::conv_cli::Conversation;
 use std::fs::{read_to_string, write, create_dir_all};
@@ -23,51 +21,36 @@ impl AuthState {
     pub fn new(timeout: Duration, username: String, groups: Vec<String>) -> Self {
         let last_authenticated = load_last_auth(&username);
         let roles = get_roles_for_user(&username);
-        
         log_debug(&format!(
             "Initializing AuthState for user '{}'. Timeout: {:?}, Groups: {:?}, Roles: {:?}",
             username, timeout, groups, roles
         ));
-
-        AuthState {
-            last_authenticated,
-            timeout,
-            username,
-            groups,
-            roles,
-            failed_attempts: 0,
-            lockout_time: None,
-        }
+        AuthState { last_authenticated, timeout, username, groups, roles, failed_attempts: 0, lockout_time: None }
     }
 
     pub fn check_timeout(&self) -> bool {
-        if let Some(last) = self.last_authenticated {
-            let elapsed = last.elapsed();
-            elapsed < self.timeout
-        } else {
-            false // No previous record found. (require authentication)
-        }
+        self.last_authenticated
+            .map(|last| last.elapsed() < self.timeout)
+            .unwrap_or(false)
     }
 
     pub fn update_last_authenticated(&mut self) {
         self.last_authenticated = Some(Instant::now());
         store_auth_timestamp(&self.username);
-        self.failed_attempts = 0; // Reset failed attempts on success
+        self.failed_attempts = 0;
     }
 
     pub fn check_lockout(&self) -> bool {
-        if let Some(lockout_time) = self.lockout_time {
-            let lockout_duration = Duration::from_secs(900); // Lockout for 15 minutes
-            if lockout_time.elapsed() < lockout_duration {
-                return true; // Account is locked
-            }
+        if let Some(lock_time) = self.lockout_time {
+            lock_time.elapsed() < Duration::from_secs(900)
+        } else {
+            false
         }
-        false
     }
 
     pub fn increment_failed_attempts(&mut self) {
         self.failed_attempts += 1;
-        if self.failed_attempts >= 5 { // Lock after 5 failed attempts
+        if self.failed_attempts >= 5 {
             self.lockout_time = Some(Instant::now());
         }
     }
@@ -79,132 +62,103 @@ fn auth_timestamp_path(user: &str) -> PathBuf {
 
 fn load_last_auth(user: &str) -> Option<Instant> {
     let path = auth_timestamp_path(user);
-    if let Ok(content) = read_to_string(path) {
-        if let Ok(epoch_secs) = content.trim().parse::<u64>() {
-            let then = UNIX_EPOCH + Duration::from_secs(epoch_secs);
-            if let Ok(duration_since_then) = SystemTime::now().duration_since(then) {
-                return Some(Instant::now() - duration_since_then);
-            }
-        }
-    }
-    None
+    let content = read_to_string(path).ok()?;
+    let secs = content.trim().parse::<u64>().ok()?;
+    let then = UNIX_EPOCH + Duration::from_secs(secs);
+    let elapsed = SystemTime::now().duration_since(then).ok()?;
+    Some(Instant::now() - elapsed)
 }
 
 fn store_auth_timestamp(user: &str) {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     let path = auth_timestamp_path(user);
     let _ = create_dir_all("/run/elev");
-    let _ = write(path, format!("{}", now));
+    let _ = write(path, now.to_string());
 }
 
 fn get_roles_for_user(username: &str) -> Vec<String> {
     match username {
-        "admin" => vec!["admin".to_string(), "developer".to_string()],
-        "user1" => vec!["user".to_string()],
-        _ => vec![],  // Default case for unknown users
+        "admin" => vec!["admin".into(), "developer".into()],
+        "user1" => vec!["user".into()],
+        _ => vec![],
     }
 }
 
 pub fn prompt_password(config: &Config) -> Option<String> {
     if config.password_required {
         log_info("Password is required for authentication.");
-
-        // Try to read from /dev/tty
-        if let Ok(tty) = std::fs::OpenOptions::new().read(true).write(true).open("/dev/tty") {
-            use std::io::{BufRead, BufReader};
-
-            let mut tty_reader = BufReader::new(tty.try_clone().ok()?);
-            let mut tty_writer = tty;
-
-            write!(tty_writer, "Password: ").ok()?;
-            tty_writer.flush().ok()?;
-
-            let mut password = String::new();
-            tty_reader.read_line(&mut password).ok()?;
-
-            return Some(password.trim().to_string());
-        } else {
-            log_error("Could not open /dev/tty for password prompt.");
-            eprintln!("Error: elev must be run in a terminal (not via pipe or redirect).");
-            std::process::exit(1);
-        }
+        let tty = std::fs::OpenOptions::new().read(true).write(true).open("/dev/tty")
+            .unwrap_or_else(|_| { eprintln!("Error: elev must be run in a terminal."); std::process::exit(1) });
+        use std::io::{BufRead, BufReader};
+        let mut reader = BufReader::new(tty.try_clone().ok()?);
+        let mut writer = tty;
+        write!(writer, "Password: ").ok()?;
+        writer.flush().ok()?;
+        let mut pw = String::new();
+        reader.read_line(&mut pw).ok()?;
+        return Some(pw.trim_end().to_string());
     }
-
-    log_info("Password not required for authentication.");
     None
 }
 
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
-
-    if config.password_required {
-        if auth_state.check_lockout() {
-            log_warn(&format!("Account is temporarily locked due to too many failed login attempts for user: {}", user));
-            return false;
-        }
-
-        const MAX_ATTEMPTS: u32 = 3;
-        let mut attempts = 0;
-
-        while attempts < MAX_ATTEMPTS {
-            // Prompt for password
-            let password = prompt_password(config);
-
-            // Check if password is empty or canceled (user didn't enter a password)
-            if let Some(password) = password {
-                let mut ctx = match Context::new(
-                    "elev",                      // PAM service name
-                    Some(user.to_string()),      // Target username
-                    Conversation::new(),         // PAM conversation via /dev/tty
-                ) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log_error(&format!("PAM init failed: {}", e));
-                        return false;
-                    }
-                };
-
-                // Set the user and password in the conversation
-                ctx.conversation_mut().set_credentials(user, &password);
-
-                // Authenticate
-                if let Err(e) = ctx.authenticate(Flag::NONE) {
-                    attempts += 1;
-                    auth_state.increment_failed_attempts();
-
-                    // Output the failure message and remaining attempts to the terminal
-                    eprintln!("Failed login attempt #{} for user: {}", attempts, user);
-                    if attempts < MAX_ATTEMPTS {
-                        eprintln!("Incorrect password. You have {} more attempt(s).", MAX_ATTEMPTS - attempts);
-                    }
-                    continue;
-                }
-
-                // Optionally check account validity
-                if let Err(e) = ctx.acct_mgmt(Flag::NONE) {
-                    eprintln!("Account check failed: {}", e);
-                    return false;
-                }
-
-                // Success
-                auth_state.update_last_authenticated();
-                log_info(&format!("Successful login for user: {}", user));  // Log successful login
-                return true;
-            } else {
-                // User canceled or entered no password
-                eprintln!("No password entered. Authentication failed.");
-                break;
-            }
-        }
-
-        eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
+    if !config.password_required {
+        log_info("Password authentication skipped.");
+        return true;
+    }
+    if auth_state.check_lockout() {
+        eprintln!("Account temporarily locked due to too many failures.");
         return false;
     }
 
-    log_info("Password authentication skipped.");
-    true // If password is not required, consider it successful
+    const MAX_ATTEMPTS: u32 = 3;
+    let mut attempts = 0;
+
+    while attempts < MAX_ATTEMPTS {
+        let password = match prompt_password(config) {
+            Some(p) if !p.is_empty() => p,
+            _ => { eprintln!("No password entered. Aborting."); return false; }
+        };
+
+        // Build PAM context using cli conversation (handles echo-off, TTY, etc.)
+        let mut ctx = match Context::new(
+            "elev",                   // PAM service name → /etc/pam.d/elev
+            Some(user),               // pass &str here, not String
+            Conversation::new(),      // the TTY-based conversation handler
+        ) {
+            Ok(c) => c,
+            Err(e) => {
+                log_error(&format!("PAM init failed: {}", e));
+                return false;
+            }
+        };
+
+        // Supply the password to PAM and authenticate
+        ctx.get_handler().set_password(&password);
+        if let Err(e) = ctx.authenticate(Flag::NONE) {
+            attempts += 1;
+            auth_state.increment_failed_attempts();
+            eprintln!("Failed login attempt #{}", attempts);
+            if attempts < MAX_ATTEMPTS {
+                eprintln!("Incorrect password. {} attempt(s) left.", MAX_ATTEMPTS - attempts);
+            }
+            continue;
+        }
+
+        // Post-auth account checks (e.g., expired, locked)
+        if let Err(e) = ctx.acct_mgmt(Flag::NONE) {
+            eprintln!("Account validation failed: {}", e);
+            return false;
+        }
+
+        // Success
+        auth_state.update_last_authenticated();
+        log_info(&format!("Successful login for user: {}", user));
+        return true;
+    }
+
+    eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
+    false
 }
+
