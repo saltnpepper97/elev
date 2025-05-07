@@ -4,6 +4,8 @@ use std::sync::Once;
 
 static INIT: Once = Once::new();
 
+/// Initialize a global logger that writes to both syslog (if available)
+/// and the console. If `verbose` is true, debug-level logs are enabled.
 pub fn init_logger(verbose: bool) {
     INIT.call_once(|| {
         // Prepare syslog backend
@@ -35,6 +37,8 @@ pub fn init_logger(verbose: bool) {
     });
 }
 
+/// A logger that fans each record out to syslog (if configured)
+/// and to stderr/stdout via a simple console logger.
 struct CombinedLogger {
     syslog: Option<BasicLogger>,
     console: ConsoleLogger,
@@ -43,18 +47,31 @@ struct CombinedLogger {
 
 impl Log for CombinedLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        let level = if self.verbose { LevelFilter::Debug } else { LevelFilter::Info };
-        metadata.level() <= level
+        // Allow Info and above always; Debug only if verbose
+        if metadata.level() == log::Level::Debug {
+            self.verbose
+        } else {
+            true
+        }
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            // send to syslog first
-            if let Some(ref syslogger) = self.syslog {
-                let _ = syslogger.log(record);
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+
+        match record.level() {
+            log::Level::Debug => {
+                // Debug messages only go to console when verbose
+                self.console.log(record);
             }
-            // then console
-            self.console.log(record);
+            _ => {
+                // Info, Warn, Error go to both syslog (if available) and console
+                if let Some(ref syslogger) = self.syslog {
+                    let _ = syslogger.log(record);
+                }
+                self.console.log(record);
+            }
         }
     }
 
@@ -86,18 +103,24 @@ impl Log for ConsoleLogger {
     fn flush(&self) {}
 }
 
+// Convenience wrappers so you can keep using log_info, etc.
+
+/// Logs at INFO level.
 pub fn log_info(message: &str) {
     info!("{}", message);
 }
 
+/// Logs at WARN level.
 pub fn log_warn(message: &str) {
     warn!("{}", message);
 }
 
+/// Logs at ERROR level.
 pub fn log_error(message: &str) {
     error!("{}", message);
 }
 
+/// Logs at DEBUG level (only emitted if `--verbose` was set).
 pub fn log_debug(message: &str) {
     debug!("{}", message);
 }
