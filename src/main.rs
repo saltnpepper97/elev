@@ -21,12 +21,12 @@ fn main() {
     let euid = geteuid().as_raw();
 
     if uid == 0 {
-        log_error("Do not run 'nexus' directly as root.");
+        println!("Do not run 'elev' directly as root.");
         exit(1);
     }
 
     if euid != 0 {
-        log_error("Error: 'nexus' must be installed as setuid-root.");
+        log_error("Error: 'elev' must be installed as setuid-root.");
         exit(1);
     }
 
@@ -69,7 +69,7 @@ fn main() {
         target_user
     ));
 
-    let config = Config::load("/etc/nexus.conf").unwrap_or_else(|e| {
+    let config = Config::load("/etc/elev.conf").unwrap_or_else(|e| {
         log_error(&format!("Failed to load config: {}", e));
         exit(1);
     });

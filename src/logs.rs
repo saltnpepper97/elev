@@ -5,7 +5,7 @@ pub fn init_logger() {
     let formatter = Formatter3164 {
         facility: Facility::LOG_AUTH,
         hostname: None,
-        process: "nexus".into(),
+        process: "elev".into(),
         pid: std::process::id(),
     };
 
