@@ -5,6 +5,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::logs::{log_info, log_warn, log_error, log_debug};
+use crate::Config; // Import Config
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
@@ -21,10 +22,10 @@ impl AuthState {
         let last_authenticated = load_last_auth(&username);
         let roles = get_roles_for_user(&username);
         
-        log_debug(&format!{
-           "Initializing AuthState for user '{}'. Timeout: {:?}, Groups: {:?}, Roles: {:?}",
-           username, timeout, groups, roles
-        });
+        log_debug(&format!(
+            "Initializing AuthState for user '{}'. Timeout: {:?}, Groups: {:?}, Roles: {:?}",
+            username, timeout, groups, roles
+        ));
 
         AuthState {
             last_authenticated,
@@ -106,30 +107,41 @@ fn get_roles_for_user(username: &str) -> Vec<String> {
     }
 }
 
-pub fn prompt_password() -> Option<String> {
-    print!("Password: ");
-    io::stdout().flush().ok()?;
-    read_password().ok()
+pub fn prompt_password(config: &Config) -> Option<String> {
+    if config.password_required {
+        log_info("Password is required for authentication.");
+        print!("Password: ");
+        io::stdout().flush().ok()?;
+        return read_password().ok();
+    }
+
+    log_info("Password not required for authentication.");
+    None // Return None if password is not required
 }
 
-pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -> bool {
+pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
-    if auth_state.check_lockout() {
-        log_warn(&format!("Account is temporarily locked due to too many failed login attempts for user: {}", user));
+    if config.password_required {
+        if auth_state.check_lockout() {
+            log_warn(&format!("Account is temporarily locked due to too many failed login attempts for user: {}", user));
+            return false;
+        }
+
+        let mut client = Client::with_password("nexus").ok().expect("Failed to create client");
+        client.conversation_mut().set_credentials(user, password);
+
+        if client.authenticate().is_ok() {
+            auth_state.update_last_authenticated();
+            log_info(&format!("Successful login for user: {}", user));  // Log successful login
+            return true;
+        }
+
+        auth_state.increment_failed_attempts();
+        log_error(&format!("Failed login attempt for user: {}", user));  // Log failed login attempt
         return false;
     }
 
-    let mut client = Client::with_password("nexus").ok().expect("Failed to create client");
-    client.conversation_mut().set_credentials(user, password);
-
-    if client.authenticate().is_ok() {
-        auth_state.update_last_authenticated();
-        log_info(&format!("Successful login for user: {}", user));  // Log successful login
-        return true;
-    }
-
-    auth_state.increment_failed_attempts();
-    log_error(&format!("Failed login attempt for user: {}", user));  // Log failed login attempt
-    false
+    log_info("Password authentication skipped.");
+    true // If password is not required, consider it successful
 }
