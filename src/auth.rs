@@ -3,7 +3,6 @@
 use pam_client2::{Context, Flag};
 use pam_client2::conv_cli::Conversation;
 use std::fs::{read_to_string, write, create_dir_all};
-use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::logs::{log_info, log_error, log_debug};
@@ -125,6 +124,7 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
 
         // Attempt authentication (this will prompt “Password: ” via Conversation)
         if let Err(e) = ctx.authenticate(Flag::NONE) {
+            log_error(&format!("PAM authentication failed: {}", e));
             attempts += 1;
             auth_state.increment_failed_attempts();
             eprintln!("Failed login attempt #{}", attempts);
