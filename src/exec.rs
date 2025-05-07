@@ -11,6 +11,10 @@ pub fn switch_user(target_user: &str) -> Result<(), String> {
 }
 
 pub fn run_command(config: &Config, auth_state: &mut AuthState, cmd: &str, args: &[&str]) -> Result<ExitStatus, std::io::Error> {
+    // Debugging
+    println!("Checking timeout: last authenticated: {:?}", auth_state.last_authenticated);
+    println!("Timeout check result: {}", auth_state.check_timeout());
+
     // Ensure the user has permission to run the command
     if !config.is_permitted(&auth_state.username, &auth_state.groups, "root", cmd) {
         return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Permission denied"));
@@ -20,6 +24,7 @@ pub fn run_command(config: &Config, auth_state: &mut AuthState, cmd: &str, args:
     if !auth_state.check_timeout() {
         return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "Authentication timeout expired"));
     }
-    
+
+    // Proceed with running the command
     Command::new(cmd).args(args).status()
 }
