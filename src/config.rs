@@ -1,7 +1,9 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use regex::Regex;
-use chrono::{NaiveTime, Local};
+use chrono::{NaiveTime, Local, Timelike, Duration};
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Represents a single permission rule from the config.
 #[derive(Clone, Debug)]
@@ -15,18 +17,21 @@ pub struct Rule {
     pub end_time: Option<NaiveTime>,
 }
 
-/// Represents the full config file
+/// Represents the full config file.
 #[derive(Debug)]
 pub struct Config {
     pub rules: Vec<Rule>,
+    pub last_authenticated: HashMap<String, u64>, // Stores the last authentication timestamp for users
+    pub timeout: u64, // Timeout in seconds, e.g., 15 minutes
 }
 
 impl Config {
-    pub fn load(path: &str) -> std::io::Result<Self> {
+    pub fn load(path: &str, timeout: u64) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
         let mut rules = Vec::new();
+        let mut last_authenticated = HashMap::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -41,10 +46,24 @@ impl Config {
             }
         }
 
-        Ok(Config { rules })
+        Ok(Config {
+            rules,
+            last_authenticated,
+            timeout,
+        })
     }
 
-    pub fn is_permitted(&self, user: &str, groups: &[String], target_user: &str, command: &str) -> bool {
+    pub fn is_permitted(&mut self, user: &str, groups: &[String], target_user: &str, command: &str) -> bool {
+        // First, check if the user has authenticated recently
+        if let Some(last_auth_time) = self.last_authenticated.get(user) {
+            let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            if current_time - last_auth_time > self.timeout {
+                return false; // If the last authentication was too long ago, deny access
+            }
+        } else {
+            return false; // If no authentication timestamp exists, deny access
+        }
+
         // Sort the rules by priority (descending order)
         let mut sorted_rules = self.rules.clone();
         sorted_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
@@ -93,6 +112,14 @@ impl Config {
         }
     
         false
+    }
+
+    pub fn authenticate(&mut self, user: &str) -> bool {
+        // Update the last authenticated time for the user
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        self.last_authenticated.insert(user.to_string(), current_time);
+
+        true
     }
 }
 
@@ -165,4 +192,3 @@ fn parse_rule(line: &str) -> Option<Rule> {
         end_time,
     })
 }
-
