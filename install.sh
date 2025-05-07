@@ -11,7 +11,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-echo "[+] Building Nexus..."
+echo "[+] Building elev..."
 cargo build --release
 
 echo "[+] Installing binary to $TARGET_BIN"
