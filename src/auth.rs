@@ -1,10 +1,12 @@
+// src/auth.rs
+
 use pam_client2::{Context, Flag};
 use pam_client2::conv_cli::Conversation;
 use std::fs::{read_to_string, write, create_dir_all};
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use crate::logs::{log_info, log_warn, log_error, log_debug};
+use crate::logs::{log_info, log_error, log_debug};
 use crate::Config;
 
 pub struct AuthState {
@@ -25,7 +27,15 @@ impl AuthState {
             "Initializing AuthState for user '{}'. Timeout: {:?}, Groups: {:?}, Roles: {:?}",
             username, timeout, groups, roles
         ));
-        AuthState { last_authenticated, timeout, username, groups, roles, failed_attempts: 0, lockout_time: None }
+        AuthState {
+            last_authenticated,
+            timeout,
+            username,
+            groups,
+            roles,
+            failed_attempts: 0,
+            lockout_time: None,
+        }
     }
 
     pub fn check_timeout(&self) -> bool {
@@ -84,25 +94,9 @@ fn get_roles_for_user(username: &str) -> Vec<String> {
     }
 }
 
-pub fn prompt_password(config: &Config) -> Option<String> {
-    if config.password_required {
-        log_info("Password is required for authentication.");
-        let tty = std::fs::OpenOptions::new().read(true).write(true).open("/dev/tty")
-            .unwrap_or_else(|_| { eprintln!("Error: elev must be run in a terminal."); std::process::exit(1) });
-        use std::io::{BufRead, BufReader};
-        let mut reader = BufReader::new(tty.try_clone().ok()?);
-        let mut writer = tty;
-        write!(writer, "Password: ").ok()?;
-        writer.flush().ok()?;
-        let mut pw = String::new();
-        reader.read_line(&mut pw).ok()?;
-        return Some(pw.trim_end().to_string());
-    }
-    None
-}
-
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
+
     if !config.password_required {
         log_info("Password authentication skipped.");
         return true;
@@ -116,16 +110,11 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
     let mut attempts = 0;
 
     while attempts < MAX_ATTEMPTS {
-        let password = match prompt_password(config) {
-            Some(p) if !p.is_empty() => p,
-            _ => { eprintln!("No password entered. Aborting."); return false; }
-        };
-
-        // Build PAM context using cli conversation (handles echo-off, TTY, etc.)
+        // Build PAM context using CLI conversation (prompts once per authenticate)
         let mut ctx = match Context::new(
-            "elev",                   // PAM service name → /etc/pam.d/elev
-            Some(user),               // pass &str here, not String
-            Conversation::new(),      // the TTY-based conversation handler
+            "elev",               // matches /etc/pam.d/elev
+            Some(user),           // &str
+            Conversation::new(),  // handles /dev/tty & echo-off
         ) {
             Ok(c) => c,
             Err(e) => {
@@ -134,8 +123,7 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
             }
         };
 
-        // Supply the password to PAM and authenticate
-        ctx.get_handler().set_password(&password);
+        // Attempt authentication (this will prompt “Password: ” via Conversation)
         if let Err(e) = ctx.authenticate(Flag::NONE) {
             attempts += 1;
             auth_state.increment_failed_attempts();
@@ -161,4 +149,3 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
     eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
     false
 }
-
