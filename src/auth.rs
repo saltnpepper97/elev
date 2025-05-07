@@ -68,7 +68,7 @@ fn store_auth_timestamp(user: &str) {
 
     let path = auth_timestamp_path(user);
     let _ = create_dir_all("/run/nexus"); // Ensure directory exists
-    let _ = write(path, format!("{}", now));
+    let _ = write(&path, format!("{}", now));
     println!("Stored timestamp at: {}", path.display()); // Debug line
 }
 
@@ -79,12 +79,6 @@ pub fn prompt_password() -> Option<String> {
 }
 
 pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -> bool {
-    // First, check if the user is within the allowed timeout window
-    if !auth_state.check_timeout() {
-        println!("Authentication failed: timeout expired"); // Debug line
-        return false;
-    }
-
     let mut client = Client::with_password("login").ok().expect("Failed to create client");
     client.conversation_mut().set_credentials(user, password);
 
