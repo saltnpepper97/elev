@@ -30,7 +30,7 @@ fn main() {
         exit(1);
     }
 
-    let matches = Command::new("nexus")
+    let matches = Command::new("elev")
         .arg(
             Arg::new("user")
                 .short('u')
