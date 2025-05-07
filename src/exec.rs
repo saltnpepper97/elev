@@ -50,8 +50,12 @@ pub fn run_command(config: &Config, auth_state: &mut AuthState, cmd: &str, args:
 
     // Log the command and environment variables being executed
     log_info(&format!("Running command '{}' with arguments {:?}", cmd, args));
-    log_info(&format!("Environment variables: {:?}", command.envs()));
+
+    // Collect environment variables into a vector and log them
+    let env_vars: Vec<_> = command.envs().collect();
+    log_info(&format!("Environment variables: {:?}", env_vars));
 
     // Execute the command and return the result
     command.status()
 }
+
