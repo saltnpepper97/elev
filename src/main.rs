@@ -10,10 +10,25 @@ use std::process::exit;
 use util::get_user_groups;
 use auth::{verify_password, prompt_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
+use nix::unistd::{getuid, geteuid}; // NEW
 
 fn main() {
     // Initialize logging
-    init_logger();  // Now logging is ready
+    init_logger();
+
+    // Check for correct usage
+    let uid = getuid().as_raw();
+    let euid = geteuid().as_raw();
+
+    if uid == 0 {
+        log_error("Do not run 'nexus' directly as root.");
+        exit(1);
+    }
+
+    if euid != 0 {
+        log_error("Error: 'nexus' must be installed as setuid-root.");
+        exit(1);
+    }
 
     let matches = Command::new("nexus")
         .arg(
@@ -54,42 +69,33 @@ fn main() {
         target_user
     ));
 
-    // Load the config
     let config = Config::load("/etc/nexus.conf").unwrap_or_else(|e| {
-        log_error(&format!("Failed to load config: {}", e));  // Log the error
+        log_error(&format!("Failed to load config: {}", e));
         exit(1);
     });
 
-    // Initialize authentication state
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
 
-    // Use instance method for checking permission
     if !config.is_permitted(&current_user, &groups, target_user, None, command) {
-        log_error(&format!("Nexus: Permission denied for '{}'", current_user));  // Log permission denial
+        log_error(&format!("Nexus: Permission denied for '{}'", current_user));
         exit(1);
     }
 
-    // If timeout expired, prompt for the password
     if !auth_state.check_timeout() {
-        log_warn("Authentication timeout expired, re-enter password.");  // Log warning
+        log_warn("Authentication timeout expired, re-enter password.");
         let password = prompt_password().unwrap_or_default();
         if !verify_password(&password, &current_user, &mut auth_state) {
-            log_error("Authentication failed");  // Log authentication failure
+            log_error("Authentication failed");
             exit(1);
         }
     }
-    
-    // Switch to target user if needed
-    if target_user != current_user {
-        exec::switch_user(target_user).unwrap_or_else(|e| {
-            log_error(&format!("Failed to switch user: {}", e));  // Log user switch failure
-            exit(1);
-        });
-    }
 
-    // Run the command with timeout and permission checks
+    // 🧠 DEFER USER SWITCH TO INSIDE exec::run_command
+    // To reduce surface area and follow exec-based model like `doas`
+
     exec::run_command(&config, &mut auth_state, command, &args).unwrap_or_else(|e| {
-        log_error(&format!("Command failed: {}", e));  // Log command failure
+        log_error(&format!("Command failed: {}", e));
         exit(1);
     });
 }
+
