@@ -26,7 +26,6 @@ impl AuthState {
     pub fn check_timeout(&self) -> bool {
         if let Some(last) = self.last_authenticated {
             let elapsed = last.elapsed();
-            println!("Time since last authentication: {:?}", elapsed); // Debug line
             elapsed < self.timeout
         } else {
             true // No previous authentication, allow for first time
@@ -36,7 +35,6 @@ impl AuthState {
     pub fn update_last_authenticated(&mut self) {
         self.last_authenticated = Some(Instant::now());
         store_auth_timestamp(&self.username);
-        println!("Updated last_authenticated: {:?}", self.last_authenticated); // Debug line
     }
 }
 
@@ -46,12 +44,9 @@ fn auth_timestamp_path(user: &str) -> PathBuf {
 
 fn load_last_auth(user: &str) -> Option<Instant> {
     let path = auth_timestamp_path(user);
-    println!("Loading auth timestamp from: {}", path.display()); // Debug line
     if let Ok(content) = read_to_string(path) {
-        println!("Read timestamp file content: {}", content); // Debug line
         if let Ok(epoch_secs) = content.trim().parse::<u64>() {
             let then = UNIX_EPOCH + Duration::from_secs(epoch_secs);
-            println!("Loaded timestamp: {:?}", then); // Debug line
             if let Ok(duration_since_then) = SystemTime::now().duration_since(then) {
                 return Some(Instant::now() - duration_since_then);
             }
@@ -67,9 +62,8 @@ fn store_auth_timestamp(user: &str) {
         .as_secs();
 
     let path = auth_timestamp_path(user);
-    let _ = create_dir_all("/run/nexus"); // Ensure directory exists
-    let _ = write(&path, format!("{}", now));
-    println!("Stored timestamp at: {}", path.display()); // Debug line
+    let _ = create_dir_all("/run/nexus");
+    let _ = write(path, format!("{}", now));
 }
 
 pub fn prompt_password() -> Option<String> {
@@ -83,12 +77,10 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState) -
     client.conversation_mut().set_credentials(user, password);
 
     if client.authenticate().is_ok() {
-        println!("Password correct, updating last authentication time."); // Debug line
-        auth_state.update_last_authenticated(); // Update + persist timestamp
+        auth_state.update_last_authenticated();
         return true;
     }
 
-    println!("Password incorrect."); // Debug line
-    false // Authentication failed
+    false
 }
 
