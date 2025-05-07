@@ -25,4 +25,4 @@ else
     echo "[!] Config already exists at $CONF_DEST – not overwritten."
 fi
 
-echo "[+] Done. You can now run: nexus whoami"
+echo "[+] Done. You can now run: elev whoami"
