@@ -1,32 +1,13 @@
-use nix::unistd::{setuid, User};
-use std::process::{Command, ExitStatus};
-use crate::config::Config;
-use crate::auth::AuthState;
-use crate::logs::{log_info, log_warn, log_error};
-
-pub fn switch_user(target_user: &str) -> Result<(), String> {
-    match User::from_name(target_user).map_err(|e| e.to_string())? {
-        Some(user_struct) => {
-            log_info(&format!("Switching to user '{}'", target_user));  // Log the user switch action
-            setuid(user_struct.uid).map_err(|e| e.to_string())  // Switch user
-        },
-        None => {
-            log_error(&format!("User '{}' not found", target_user));  // Log error if user not found
-            Err(format!("User '{}' not found", target_user))
-        },
-    }
-}
-
 pub fn run_command(
     config: &Config,
     auth_state: &mut AuthState,
     cmd: &str,
     args: &[&str],
 ) -> Result<ExitStatus, std::io::Error> {
-    let target_user = &auth_state.username; // User to run the command as
+    let target_user = &auth_state.username;
     let target_group = auth_state.groups.first();
 
-    // Ensure the user has permission to run the command
+    // Ensure user has permission to run the command
     if !config.is_permitted(
         &auth_state.username,
         &auth_state.groups,
@@ -44,7 +25,7 @@ pub fn run_command(
         ));
     }
 
-    // Check for timeout expiry
+    // Handle timeout check
     if !auth_state.check_timeout() {
         log_warn(&format!(
             "Authentication timeout expired for user '{}'",
@@ -65,30 +46,17 @@ pub fn run_command(
         ));
     }
 
-    // Prepare the command
+    // Now execute the command with all arguments
     let mut command = Command::new(cmd);
-    command.args(args);
+    command.args(args);  // Pass the arguments here
 
-    // Set required environment variables for root commands
+    // Setup environment if necessary (e.g., for root commands)
     let path = "/usr/bin:/bin:/usr/sbin:/sbin";
-    let home = "/root";
-    let frontend = "noninteractive";
-    let apt_config = "/etc/apt/apt.conf";
-
     command.env("PATH", path);
-    command.env("HOME", home);
-    command.env("DEBIAN_FRONTEND", frontend);
 
-    // Log the command and the environment setup
-    log_info(&format!(
-        "Running command '{}' with arguments {:?}",
-        cmd, args
-    ));
-    log_info(&format!(
-        "Environment: PATH={}, HOME={}, DEBIAN_FRONTEND={}, APT_CONFIG={}",
-        path, home, frontend, apt_config
-    ));
+    // Log command and environment for debugging
+    log_info(&format!("Running command: '{} {}'", cmd, args.join(" ")));
 
-    // Execute the command and return the result
+    // Execute the command
     command.status()
 }
