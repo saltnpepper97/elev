@@ -2,12 +2,14 @@ mod config;
 mod auth;
 mod exec;
 mod util;
+mod log;
 
 use clap::{Arg, Command};
 use config::Config;
 use std::process::exit;
 use util::get_user_groups;
 use auth::{verify_password, prompt_password, AuthState};
+use log::{init_logger, log_info, log_warn, log_error};
 
 fn main() {
     let matches = Command::new("nexus")
@@ -42,6 +44,12 @@ fn main() {
     let current_user = whoami::username();
     let groups = get_user_groups(&current_user);
 
+    log_info(&format!(
+        "Nexus invoked by '{}' to run '{}' as '{}'",
+        current_user,
+        command,
+        target_user
+    ));
 
     // Load the config
     let config = Config::load("/etc/nexus.conf").unwrap_or_else(|e| {
