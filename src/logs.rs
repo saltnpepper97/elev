@@ -1,26 +1,9 @@
-use log::{info, warn, error, debug, LevelFilter};
-
-#[cfg(not(debug_assertions))]
+use log::{LevelFilter, info, debug, error};
 use syslog::{BasicLogger, Facility, Formatter3164};
 
-#[cfg(debug_assertions)]
-use env_logger;
-
 pub fn init_logger(verbose: bool) {
-    let level = if verbose { LevelFilter::Debug } else { LevelFilter::Info };
-
-    // In development, use env_logger or stderr
-    #[cfg(debug_assertions)]
-    {
-        env_logger::Builder::new()
-            .filter_level(level)
-            .init();
-    }
-
-    // In production, use syslog or stderr if syslog is unavailable
-    #[cfg(not(debug_assertions))]
-    {
-        // Try to initialize syslog
+    if verbose {
+        // When verbose is true, show debug-level logs
         let formatter = Formatter3164 {
             facility: Facility::LOG_AUTH,
             hostname: None,
@@ -31,16 +14,19 @@ pub fn init_logger(verbose: bool) {
         match syslog::unix(formatter) {
             Ok(writer) => {
                 let logger = BasicLogger::new(writer);
-                let _ = log::set_boxed_logger(Box::new(logger)).map(|()| log::set_max_level(level));
+                // Set log level to Debug so that debug logs are shown
+                let _ = log::set_boxed_logger(Box::new(logger)).map(|()| log::set_max_level(LevelFilter::Debug));
             }
             Err(e) => {
-                eprintln!("Failed to connect to syslog: {}", e); // Fallback to stderr if syslog fails
-                eprintln!("Switching to console logging.");
-                let _ = log::set_boxed_logger(Box::new(ConsoleLogger)).map(|()| log::set_max_level(level));
+                eprintln!("Failed to connect to syslog: {}", e);
             }
         }
+    } else {
+        // When verbose is false, only show info-level and higher logs
+        log::set_max_level(LevelFilter::Info);
     }
 }
+
 
 // Simple console logger to fall back on when syslog isn't available
 struct ConsoleLogger;
