@@ -1,18 +1,19 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use regex::Regex;
-use chrono::{Local, NaiveTime};
+use chrono::{Local, NaiveTime, Weekday};
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Rule {
-    pub user: Option<String>,      // Some("root"), Some("*"), or None for wildcard
-    pub group: Option<String>,     // Some("wheel"), Some("*"), or None for wildcard
-    pub as_user: Option<String>,   // target user
-    pub cmd_regex: Option<Regex>,  // precompiled command matcher
-    pub priority: u8,              // default 0 if unset
+    pub user: Option<String>,
+    pub group: Option<String>,
+    pub as_user: Option<String>,
+    pub cmd_regex: Option<Regex>,
+    pub priority: u8,
     pub start_time: Option<NaiveTime>,
     pub end_time: Option<NaiveTime>,
+    pub days: Option<Vec<Weekday>>,
     pub deny: bool,
 }
 
@@ -37,7 +38,7 @@ impl Config {
 
         Ok(Config {
             rules,
-            timeout: Duration::from_secs(60), // default timeout
+            timeout: Duration::from_secs(60),
         })
     }
 
@@ -48,22 +49,20 @@ impl Config {
         target_user: &str,
         command: &str,
     ) -> bool {
-        // Sort rules by descending priority
         let mut rules = self.rules.clone();
         rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+        let now = Local::now();
+        let current_time = now.time();
+        let current_weekday = now.weekday();
 
-        let now = Local::now().time();
-
-        // Deny rules first
         for rule in &rules {
-            if rule.deny && rule.matches(user, groups, target_user, command, now) {
+            if rule.deny && rule.matches(user, groups, target_user, command, current_time, current_weekday) {
                 return false;
             }
         }
 
-        // Then allow rules
         for rule in &rules {
-            if !rule.deny && rule.matches(user, groups, target_user, command, now) {
+            if !rule.deny && rule.matches(user, groups, target_user, command, current_time, current_weekday) {
                 return true;
             }
         }
@@ -80,14 +79,13 @@ impl Rule {
         target_user: &str,
         command: &str,
         now: NaiveTime,
+        weekday: Weekday,
     ) -> bool {
-        // User match (None or "*" => wildcard)
         let user_ok = match &self.user {
             Some(u) if u != "*" => u == user,
             _ => true,
         };
 
-        // Group match (None or "*" => wildcard)
         let group_ok = match &self.group {
             Some(g) if g != "*" => groups.iter().any(|gr| gr == g),
             _ => true,
@@ -96,23 +94,26 @@ impl Rule {
             return false;
         }
 
-        // Target user match
         if let Some(as_u) = &self.as_user {
             if as_u != target_user {
                 return false;
             }
         }
 
-        // Command match via precompiled regex
         if let Some(re) = &self.cmd_regex {
             if !re.is_match(command) {
                 return false;
             }
         }
 
-        // Time window
         if let (Some(start), Some(end)) = (self.start_time, self.end_time) {
             if now < start || now > end {
+                return false;
+            }
+        }
+
+        if let Some(days) = &self.days {
+            if !days.contains(&weekday) {
                 return false;
             }
         }
@@ -122,7 +123,6 @@ impl Rule {
 }
 
 fn wildcard_to_regex(pattern: &str) -> String {
-    // Escape regex metacharacters, then replace \* -> ".*" and \? -> "."
     let mut regex = String::from("^");
     for ch in pattern.chars() {
         match ch {
@@ -149,7 +149,6 @@ fn parse_rule(line: &str) -> Option<Rule> {
         _ => return None,
     }
 
-    // User or group
     let mut user = None;
     let mut group = None;
     if i < tokens.len() {
@@ -167,6 +166,7 @@ fn parse_rule(line: &str) -> Option<Rule> {
     let mut priority = 0;
     let mut start_time = None;
     let mut end_time = None;
+    let mut days = None;
 
     while i < tokens.len() {
         match tokens[i] {
@@ -190,23 +190,52 @@ fn parse_rule(line: &str) -> Option<Rule> {
                 }
                 i += 2;
             }
+            "days" if i + 1 < tokens.len() => {
+                let day_str = tokens[i + 1];
+                if day_str == "*" || day_str.eq_ignore_ascii_case("all") {
+                    days = Some(vec![
+                        Weekday::Mon,
+                        Weekday::Tue,
+                        Weekday::Wed,
+                        Weekday::Thu,
+                        Weekday::Fri,
+                        Weekday::Sat,
+                        Weekday::Sun,
+                    ]);
+                } else {
+                    let parsed_days = day_str
+                        .split(',')
+                        .filter_map(|d| match d.to_lowercase().as_str() {
+                            "mon" => Some(Weekday::Mon),
+                            "tue" => Some(Weekday::Tue),
+                            "wed" => Some(Weekday::Wed),
+                            "thu" => Some(Weekday::Thu),
+                            "fri" => Some(Weekday::Fri),
+                            "sat" => Some(Weekday::Sat),
+                            "sun" => Some(Weekday::Sun),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
+                    if !parsed_days.is_empty() {
+                        days = Some(parsed_days);
+                    }
+                }
+                i += 2;
+            }
             _ => { i += 1; }
         }
     }
 
-    // Compile wildcard or regex pattern
     let cmd_regex = command_pat.map(|pat| {
         let re_str = if pat.contains('*') || pat.contains('?') {
             wildcard_to_regex(&pat)
         } else if pat == "*" {
             String::from("^.*$")
         } else {
-            // treat as literal command name (e.g., rm)
             format!("^{pat}$")
         };
         Regex::new(&re_str).unwrap_or_else(|_| Regex::new("^$").unwrap())
     });
 
-    Some(Rule { user, group, as_user, cmd_regex, priority, start_time, end_time, deny })
+    Some(Rule { user, group, as_user, cmd_regex, priority, start_time, end_time, days, deny })
 }
-
