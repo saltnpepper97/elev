@@ -27,19 +27,10 @@ fn main() {
                 .value_name("COMMAND")
                 .help("Command to execute"),
         )
-        .arg(
-            Arg::new("group")
-            .short('g')
-            .long("group")
-            .help("Target group to run command as")
-            .value_name("GROUP")
-            .value_parser(clap::value_parser!(String))
-        )
         .get_matches();
 
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
-    let target_group = matches.get_one::<String>("group").map(String::as_str);
-    
+
     let command_and_args = matches
         .get_many::<String>("command")
         .expect("Command is required")
@@ -62,7 +53,7 @@ fn main() {
     let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
 
     // Use instance method for checking permission
-    if !config.is_permitted(&current_user, &groups, target_user, target_group, command) {
+    if !config.is_permitted(&current_user, &groups, target_user, command) {
         eprintln!("Nexus: Permission denied for '{}'", current_user);
         exit(1);
     }

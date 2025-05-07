@@ -57,13 +57,13 @@ impl Config {
         let current_weekday = now.weekday();
 
         for rule in &rules {
-            if rule.deny && rule.matches(user, groups, target_user, target_group command, current_time, current_weekday) {
+            if rule.deny && rule.matches(user, groups, target_user, target_group, command, current_time, current_weekday) {
                 return false;
             }
         }
 
         for rule in &rules {
-            if !rule.deny && rule.matches(user, groups, target_user, target_group command, current_time, current_weekday) {
+            if !rule.deny && rule.matches(user, groups, target_user, target_group, command, current_time, current_weekday) {
                 return true;
             }
         }
@@ -94,6 +94,12 @@ impl Rule {
         };
         if !user_ok && !group_ok {
             return false;
+        }
+
+        if let Some(group) = target_group {
+            if self.group.as_ref().map_or(false, |g| g != group) {
+                return false // If the target group doesn't match, return false
+            }
         }
 
         if let Some(as_u) = &self.as_user {
