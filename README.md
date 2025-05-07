@@ -1,26 +1,74 @@
 # elev
 
-**elev** is a minimal, secure privilege elevation tool written in Rust — inspired by `doas` and `sudo`, but designed with modern practices and simplicity in mind.
+elev is a minimal, secure privilege elevation tool written in Rust—designed as a drop‑in replacement for `sudo` or `doas` on systems where neither is installed. It follows modern security practices with a focus on simplicity and transparency.
 
 ---
 
-## 🚀 Features
+## Features
 
-- 🔐 **Secure**: Written in safe, memory-checked Rust to prevent common vulnerabilities.
-- ⚡ **Fast & Lightweight**: Focuses on minimalism, providing a swift and responsive experience.
-- ✅ **Simple Configuration**: Easy-to-understand rule syntax for allowing and denying commands with fine-grained control.
-- 🧩 **Customizable & Extensible**: Designed to be flexible and modifiable for various workflows and use cases.
-- 🕒 **Time-Based Access**: Rules can be set to be active during specific time windows.
-- 🚫 **Advanced Deny Logic**: Deny rules can override even `root` or other allow rules, ensuring precise control over command execution.
-- 🔧 **Wildcard & Regex Support**: Supports both wildcards and regular expressions for flexible command matching.
-- 🛡️ **Cybersecurity Focus**: Built with modern cybersecurity practices and solarpunk principles in mind, prioritizing safe technology and user autonomy.
+* **Secure**: Implemented in Rust for memory safety and resilience against common vulnerabilities.
+* **Fast & Lightweight**: Minimal dependencies and a small footprint for responsive performance.
+* **Simple Configuration**: Human‑readable rule syntax for fine‑grained allow/deny policies.
+* **Time‑Based Access**: Enable rules only during specified time windows.
+* **Advanced Deny Logic**: Deny rules override any allow rules, including root or wildcard entries.
+* **Wildcard & Regex Support**: Flexible command matching for complex workflows.
+* **Extensible**: Configurable and easy to integrate into custom environments.
+* **Solarpunk & Cybersecurity Principles**: Built with user autonomy and safe tech philosophies in mind.
 
 ---
 
-## 🛠️ Building
+## Installation
 
-To build `elev`, you'll need Rust > 1.70 installed. Then run this command:
+**Prerequisites:**
+
+* Rust toolchain (version 1.70 or newer)
+* Access to the `root` account (no `sudo` or `doas` required)
+
+1. **Switch to the root user**:
+
+   ```bash
+   su -
+   ```
+2. **Run the installer** from the project root:
+
+   ```bash
+   ./install.sh
+   ```
+
+This script will:
+
+* Compile `elev` in release mode
+* Install the binary to `/usr/local/bin/elev`
+* Create a default config at `/etc/elev.conf`
+
+---
+
+## Configuration
+
+The default configuration file is located at `/etc/elev.conf`. Define rules using the following syntax:
+
+```conf
+# Allow user "alice" to run "journalctl" as root
+permit alice as root cmd journalctl
+
+# Deny everyone from running "shutdown"
+deny all cmd shutdown
+```
+
+Reload or restart any services that rely on `elev` after modifying the config.
+
+---
+
+## Usage
+
+Invoke `elev` just like you would `sudo` or `doas`:
 
 ```bash
-cargo build --release
+$ elev journalctl -xe
+```
 
+For detailed help:
+
+```bash
+$ elev --help
+```
