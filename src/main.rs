@@ -16,18 +16,20 @@ use std::os::raw::c_char;
 
 /// Retrieve the real (invoking) user's username via their real UID.
 fn real_username() -> String {
-    // Get the real UID
-    let uid = getuid().as_raw() as libc::uid_t;
+    let uid = getuid().as_raw();
     unsafe {
         let pw = libc::getpwuid(uid);
-        if pw.is_null() {
-            return "unknown".into();
+        if !pw.is_null() {
+            let name_ptr = (*pw).pw_name;
+            if !name_ptr.is_null() {
+                return CStr::from_ptr(name_ptr)
+                    .to_string_lossy()
+                    .into_owned();
+            }
         }
-        let name_ptr: *const c_char = (*pw).pw_name;
-        CStr::from_ptr(name_ptr)
-            .to_string_lossy()
-            .into_owned()
     }
+    // Fallback to UID string if lookup fails
+    uid.to_string()
 }
 
 fn main() {
