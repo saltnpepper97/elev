@@ -45,17 +45,40 @@ This script will:
 
 ## Configuration
 
-The default configuration file is located at `/etc/elev.conf`. Define rules using the following syntax:
+The default configuration file is located at `/etc/elev.conf`. Define rules using human-readable syntax. Available keywords:
 
-```conf
-# Allow user "alice" to run "journalctl" as root
-allow alice cmd *journalctl
+* `allow` / `deny`
+* `user` or `:group`
+* `as <target_user>`
+* `cmd <pattern>` (wildcards `*`, `?`, or full regex)
+* `priority <0-255>`
+* `time HH:MM-HH:MM`
+* `days <mon,tue,...,sun>` or `*` for all days
 
-# Deny everyone from running "shutdown"
-deny all cmd shutdown
+Example rule format:
+
+```text
+allow <user_or_:group> [as <target_user>] cmd <pattern> [priority <n>] [time <start>-<end>] [days <list>]
 ```
 
-Reload or restart any services that rely on `elev` after modifying the config.
+---
+
+## Examples
+
+```conf
+# Allow user "alice" to run "journalctl" as root at any time
+allow alice as root cmd journalctl
+
+# Deny user "bob" from running "userdel" between 22:00 and 06:00 on weekdays
+deny bob as root cmd userdel time 22:00-06:00 days mon,tue,wed,thu,fri
+
+# Allow any member of group "admins" to run any command as any user, high priority
+allow :admins cmd * priority 100
+
+# Deny all users from rebooting or shutting down the system
+deny all cmd reboot
+deny all cmd shutdown
+```
 
 ---
 
@@ -72,3 +95,4 @@ For detailed help:
 ```bash
 $ elev --help
 ```
+
