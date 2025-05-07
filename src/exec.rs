@@ -20,16 +20,16 @@ pub fn switch_user(target_user: &str) -> Result<(), String> {
 pub fn run_command(
     config: &Config,
     auth_state: &mut AuthState,
+    target_user: &str,
     cmd: &str,
     args: &[&str],
 ) -> Result<ExitStatus, std::io::Error> {
-    let target_user = &auth_state.username;
 
     // Ensure user has permission to run the command
     if !config.is_permitted(
         &auth_state.username,
         &auth_state.groups,
-        "root",
+        target_user,
         cmd,
         &auth_state.roles,
     ) {

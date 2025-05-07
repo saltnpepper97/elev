@@ -103,7 +103,7 @@ fn main() {
         }
     }
 
-    exec::run_command(&config, &mut auth_state, command, &args).unwrap_or_else(|e| {
+    exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
         log_error(&format!("Command failed: {}", e));
         exit(1);
     });
