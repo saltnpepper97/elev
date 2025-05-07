@@ -64,8 +64,6 @@ fn main() {
             eprintln!("Authentication failed");
             exit(1);
         }
-    } else {
-        println!("Authenticated within timeout window.");
     }
     
     // Switch to target user if needed
