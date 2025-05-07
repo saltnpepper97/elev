@@ -4,7 +4,7 @@ use regex::Regex;
 use chrono::{NaiveTime, Local};
 
 /// Represents a single permission rule from the config.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Rule {
     pub user: Option<String>,
     pub group: Option<String>,
