@@ -135,7 +135,7 @@ pub fn prompt_password(config: &Config) -> Option<String> {
     None
 }
 
-pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
+pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
     if config.password_required {
@@ -144,26 +144,36 @@ pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, c
             return false;
         }
 
-        // Retry logic: Allow a few attempts
         const MAX_ATTEMPTS: u32 = 3;
         let mut attempts = 0;
+
         while attempts < MAX_ATTEMPTS {
-            let mut client = Client::with_password("elev").ok().expect("Failed to create client");
-            client.conversation_mut().set_credentials(user, password);
+            // Prompt for password
+            let password = prompt_password(config);
 
-            if client.authenticate().is_ok() {
-                auth_state.update_last_authenticated();
-                log_info(&format!("Successful login for user: {}", user));  // Log successful login
-                return true;
-            }
+            // Check if password is empty or canceled (user didn't enter a password)
+            if let Some(password) = password {
+                let mut client = Client::with_password("elev").ok().expect("Failed to create client");
+                client.conversation_mut().set_credentials(user, &password);
 
-            attempts += 1;
-            auth_state.increment_failed_attempts();
+                if client.authenticate().is_ok() {
+                    auth_state.update_last_authenticated();
+                    log_info(&format!("Successful login for user: {}", user));  // Log successful login
+                    return true;
+                }
 
-            // Output the failure message and remaining attempts to the terminal
-            eprintln!("Failed login attempt #{} for user: {}", attempts, user);
-            if attempts < MAX_ATTEMPTS {
-                eprintln!("Incorrect password. You have {} more attempts.", MAX_ATTEMPTS - attempts);
+                attempts += 1;
+                auth_state.increment_failed_attempts();
+
+                // Output the failure message and remaining attempts to the terminal
+                eprintln!("Failed login attempt #{} for user: {}", attempts, user);
+                if attempts < MAX_ATTEMPTS {
+                    eprintln!("Incorrect password. You have {} more attempts.", MAX_ATTEMPTS - attempts);
+                }
+            } else {
+                // User canceled or entered no password
+                eprintln!("No password entered. Authentication failed.");
+                break;
             }
         }
 
