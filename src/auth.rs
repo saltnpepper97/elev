@@ -110,13 +110,30 @@ fn get_roles_for_user(username: &str) -> Vec<String> {
 pub fn prompt_password(config: &Config) -> Option<String> {
     if config.password_required {
         log_info("Password is required for authentication.");
-        print!("Password: ");
-        io::stdout().flush().ok()?;
-        return read_password().ok();
+
+        // Try to read from /dev/tty
+        if let Ok(tty) = std::fs::OpenOptions::new().read(true).write(true).open("/dev/tty") {
+            use std::io::{BufRead, BufReader};
+
+            let mut tty_reader = BufReader::new(tty.try_clone().ok()?);
+            let mut tty_writer = tty;
+
+            write!(tty_writer, "Password: ").ok()?;
+            tty_writer.flush().ok()?;
+
+            let mut password = String::new();
+            tty_reader.read_line(&mut password).ok()?;
+
+            return Some(password.trim().to_string());
+        } else {
+            log_error("Could not open /dev/tty for password prompt.");
+            eprintln!("Error: elev must be run in a terminal (not via pipe or redirect).");
+            std::process::exit(1);
+        }
     }
 
     log_info("Password not required for authentication.");
-    None // Return None if password is not required
+    None
 }
 
 pub fn verify_password(password: &str, user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
