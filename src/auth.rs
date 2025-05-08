@@ -1,6 +1,5 @@
-use rpassword;
-use pam_client2::{Context, Flag};
-use pam_client2::conv_cli::Conversation;
+use rpassword::read_password;
+use pam_client2::{Context, Flag, ConversationHandler};
 use std::io::{self, Write};
 use std::fs::{read_to_string, write, create_dir_all};
 use std::path::PathBuf;
