@@ -1,5 +1,3 @@
-// src/main.rs
-
 mod config;
 mod auth;
 mod exec;
@@ -54,32 +52,12 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .about("Elev: a sudo/doas-like drop-in replacement with PAM integration")
         .arg(
-            Arg::new("user")
-                .short('u')
-                .long("user")
-                .help("Target user to run command as")
-                .value_name("USER")
-                .value_parser(clap::value_parser!(String))
-                .default_value("root"),
-        )
-        .arg(
-            Arg::new("login")
-                .short('i')
-                .long("login")
-                .help("Run as login shell; skips command requirement")
+            Arg::new("clear-timestamp")
+                .short('K')
+                .long("clear-timestamp")
+                .help("Clear authentication timestamp, forcing re-prompt on next use")
                 .action(clap::ArgAction::SetTrue),
         )
-        .arg(
-            Arg::new("command")
-                .required_unless_present("login")
-                .num_args(1..)
-                .allow_hyphen_values(true)
-                .trailing_var_arg(true)
-                .value_name("COMMAND")
-                .help("Command to execute"),
-        )
-        .arg(
-            Arg::new("clear-timestamp")
                 .short('K')
                 .long("clear-timestamp")
                 .help("Clear authentication timestamp, forcing re-prompt on next use")
