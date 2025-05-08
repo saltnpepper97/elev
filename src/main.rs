@@ -85,6 +85,17 @@ fn main() {
                 .help("Enable verbose logging")
                 .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("clear-timestamp")
+                .short('K')
+                .long("clear-timestamp")
+                .help("Clear authentication timestamp, forcing re-prompt on next use")
+                .action(clap::ArgAction::SetTrue),
+                .short('v')
+                .long("verbose")
+                .help("Enable verbose logging")
+                .action(clap::ArgAction::SetTrue),
+        )
         .get_matches();
 
     // Initialize logging
