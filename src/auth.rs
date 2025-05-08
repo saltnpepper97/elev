@@ -79,52 +79,45 @@ impl AuthState {
 }
 
 pub struct CustomConversation {
-    pub prompt: String,
+    pub prompt: String, // Your custom prompt message
 }
 
 impl CustomConversation {
-    fn new(prompt: String) -> Self {
+    pub fn new(prompt: String) -> Self {
         CustomConversation { prompt }
     }
+}
 
-    fn converse(&mut self, messages: &[Message]) -> Result<Vec<Reply>, io::Error> {
+impl ConversationHandler for CustomConversation {
+    fn handle(&mut self, messages: &[String]) -> Result<Vec<String>, io::Error> {
         let mut replies = Vec::with_capacity(messages.len());
 
         for msg in messages {
-            match msg.style {
-                MsgStyle::PromptEchoOff => {
-                    // Display the custom prompt
+            match msg.as_str() {
+                // Handle each type of message as needed
+                "PromptEchoOff" => {
                     print!("{}", self.prompt);
                     io::stderr().flush().unwrap();
-
-                    // Enhanced error handling for password input
-                    match rpassword::read_password() {
-                        Ok(password) => replies.push(Reply::new(password)),
-                        Err(e) => {
-                            log_error(&format!("Error reading password: {}", e));
-                            eprintln!("Failed to read password. Please try again.");
-                            replies.push(Reply::new(String::new())); // empty reply in case of error
-                        }
-                    }
+                    let password = read_password().unwrap_or_default();
+                    replies.push(password);
                 }
-                MsgStyle::PromptEchoOn => {
-                    print!("{}", msg.msg);
+                "PromptEchoOn" => {
+                    print!("{}", msg);
                     io::stderr().flush().unwrap();
-
                     let mut input = String::new();
                     io::stdin().read_line(&mut input).unwrap();
-                    replies.push(Reply::new(input.trim_end().to_string()));
+                    replies.push(input.trim_end().to_string());
                 }
-                MsgStyle::ErrorMsg => {
-                    eprintln!("{}", msg.msg);
-                    replies.push(Reply::new(String::new()));
+                "ErrorMsg" => {
+                    eprintln!("{}", msg);
+                    replies.push(String::new());
                 }
-                MsgStyle::TextInfo => {
-                    println!("{}", msg.msg);
-                    replies.push(Reply::new(String::new()));
+                "TextInfo" => {
+                    println!("{}", msg);
+                    replies.push(String::new());
                 }
                 _ => {
-                    replies.push(Reply::new(String::new()));
+                    replies.push(String::new());
                 }
             }
         }
