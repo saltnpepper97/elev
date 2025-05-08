@@ -176,7 +176,7 @@ fn main() {
     // Enforce timeout and password
     if !auth_state.check_timeout() {
         log_warn("Authentication timeout expired, re-enter password.");
-        if !verify_password(&current_user, &mut auth_state, &config) {
+        if !verify_password(&current_user, &mut auth_state, &config, &target_user, &command) {
             log_error("Authentication failed");
             exit(1);
         }
