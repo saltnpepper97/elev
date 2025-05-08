@@ -181,7 +181,7 @@ fn parse_rule(line: &str) -> Option<Rule> {
     let mut as_user = None;
     let mut command_pat = None;
     let mut priority = 0;
-    let mut allowed_roles = None;  // Added roles parsing
+    let mut allowed_roles = None;
     while i < tokens.len() {
         match tokens[i] {
             "as" if i + 1 < tokens.len() => {
