@@ -1,34 +1,12 @@
 use pam::{
-    authenticate, acct_mgmt, end, start, PamFlag, PamMessageStyle, PamResponse, PamResult, PamHandle,
+    authenticate, acct_mgmt, end, start, PamFlag, PamReturnCode, PasswordConv,
 };
+use std::fs::{create_dir_all, read_to_string, write};
+use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use std::fs::{read_to_string, write, create_dir_all};
-use crate::logs::{log_info, log_error, log_debug};
+use crate::logs::{log_debug, log_error, log_info};
 use crate::Config;
 use rpassword::prompt_password;
-
-struct PasswordPrompt {
-    password: String,
-}
-
-impl pam::Conversation for PasswordPrompt {
-    fn call(&mut self, msg_style: PamMessageStyle, msg: &str) -> PamResult<Vec<PamResponse>> {
-        match msg_style {
-            PamMessageStyle::PROMPT_ECHO_OFF => Ok(vec![self.password.clone().into()]),
-            PamMessageStyle::PROMPT_ECHO_ON => {
-                print!("{msg}");
-                let mut input = String::new();
-                std::io::stdin().read_line(&mut input).unwrap();
-                Ok(vec![input.trim().into()])
-            }
-            PamMessageStyle::ERROR_MSG | PamMessageStyle::TEXT_INFO => {
-                println!("{msg}");
-                Ok(vec![PamResponse::default()])
-            }
-            _ => Err(pam::PamReturnCode::CONV_ERR.into()),
-        }
-    }
-}
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
@@ -61,7 +39,7 @@ impl AuthState {
 
     pub fn check_timeout(&self) -> bool {
         self.last_authenticated
-            .map(|last| last.elapsed() < self.timeout)
+            .map(|t| t.elapsed() < self.timeout)
             .unwrap_or(false)
     }
 
@@ -72,11 +50,9 @@ impl AuthState {
     }
 
     pub fn check_lockout(&self) -> bool {
-        if let Some(lock_time) = self.lockout_time {
-            lock_time.elapsed() < Duration::from_secs(900)
-        } else {
-            false
-        }
+        self.lockout_time
+            .map(|t| t.elapsed() < Duration::from_secs(900))
+            .unwrap_or(false)
     }
 
     pub fn increment_failed_attempts(&mut self) {
@@ -93,7 +69,7 @@ fn auth_timestamp_path(user: &str) -> PathBuf {
 
 fn load_last_auth(user: &str) -> Option<Instant> {
     let path = auth_timestamp_path(user);
-    let content = read_to_string(path).ok()?;
+    let content = read_to_string(&path).ok()?;
     let secs = content.trim().parse::<u64>().ok()?;
     let then = UNIX_EPOCH + Duration::from_secs(secs);
     let elapsed = SystemTime::now().duration_since(then).ok()?;
@@ -101,13 +77,22 @@ fn load_last_auth(user: &str) -> Option<Instant> {
 }
 
 fn store_auth_timestamp(user: &str) {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     let path = auth_timestamp_path(user);
-    let _ = create_dir_all("/run/elev");
-    let _ = write(path, now.to_string());
+    if let Err(e) = create_dir_all("/run/elev") {
+        log_error(&format!("Failed to create /run/elev: {}", e));
+        return;
+    }
+    if let Err(e) = write(path, now.to_string()) {
+        log_error(&format!("Failed to write auth timestamp: {}", e));
+    }
 }
 
 fn get_roles_for_user(username: &str) -> Vec<String> {
+    // TODO: replace with real lookup
     match username {
         "admin" => vec!["admin".into(), "developer".into()],
         "user1" => vec!["user".into()],
@@ -131,46 +116,47 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
     let mut attempts = 0;
 
     while attempts < MAX_ATTEMPTS {
-        // Secure password input
+        // 1) Get password
         let password = match prompt_password(format!("Password for {}: ", user)) {
             Ok(p) => p,
             Err(_) => return false,
         };
 
-        // Build PAM context using CLI conversation (password input)
-        let mut conv = PasswordPrompt { password };
-        let mut handle = match start("elev", Some(user), &mut conv) {
+        // 2) Build PAM conversation and set credentials
+        let mut conv = PasswordConv::new();
+        conv.set_credentials(user, password);
+
+        // 3) Start PAM transaction
+        let mut handle = match start("elev", Some(user), &conv) {
             Ok(h) => h,
             Err(e) => {
-                log_error(&format!("PAM init failed: {}", e));
+                log_error(&format!("PAM start failed: {}", e));
                 return false;
             }
         };
 
-        // Attempt authentication
-        if authenticate(&mut handle, PamFlag::NONE).is_err() {
-            log_error(&format!("PAM authentication failed for user: {}", user));
+        // 4) Authenticate
+        if let Err(code) = authenticate(&mut handle, PamFlag::None) {
+            log_error(&format!("PAM auth failed: {:?}", code));
             attempts += 1;
             auth_state.increment_failed_attempts();
-            eprintln!("Failed login attempt #{}", attempts);
-            if attempts < MAX_ATTEMPTS {
-                eprintln!("Incorrect password. {} attempt(s) left.", MAX_ATTEMPTS - attempts);
-            }
+            eprintln!("Incorrect password (attempt {}/{})", attempts, MAX_ATTEMPTS);
             continue;
         }
 
-        // Post-auth account checks (e.g., expired, locked)
-        if acct_mgmt(&mut handle, PamFlag::NONE).is_err() {
-            eprintln!("Account validation failed: {}", user);
+        // 5) Account checks
+        if let Err(code) = acct_mgmt(&mut handle, PamFlag::None) {
+            eprintln!("Account validation failed: {:?}", code);
             return false;
         }
 
-        // Success
+        // 6) Success path: update state & clean up
         auth_state.update_last_authenticated();
-        log_info(&format!("Successful login for user: {}", user));
+        log_info(&format!("Successful login for user '{}'", user));
+        let _ = end(handle, PamReturnCode::Success);
         return true;
     }
 
-    eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
+    eprintln!("User '{}' failed to authenticate after {} attempts.", user, MAX_ATTEMPTS);
     false
 }
