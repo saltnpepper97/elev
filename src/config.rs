@@ -45,13 +45,13 @@ impl Config {
                 if let Some(role_name) = parts.next() {
                     let mut users = Vec::new();
                     let mut time_range = None;
-                    
+        
                     if let Some(users_str) = parts.next() {
                         users = users_str.split(',')
                             .map(|s| s.trim().to_string())
                             .collect();
                     }
-
+        
                     if let Some(timing_str) = parts.next() {
                         let times: Vec<&str> = timing_str.split('-').collect();
                         if times.len() == 2 {
@@ -60,7 +60,7 @@ impl Config {
                             time_range = Some((start_time, end_time));
                         }
                     }
-
+        
                     roles.insert(role_name.to_string(), (users, time_range));
                     log_info(&format!("Defined role '{}' with members {:?} and timing {:?}", role_name, users, time_range));
                 }
@@ -68,7 +68,7 @@ impl Config {
                 raw_lines.push(line);
             }
         }
-        
+ 
         // Second pass: parse rules and global settings
         for line in &raw_lines {
             if let Some(rule) = parse_rule(line, &roles) {
@@ -222,16 +222,6 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
                 allowed_roles = Some(parsed_roles);
                 i += 2;
             }
-            "timing" if i + 1 < tokens.len() => {
-                let time_range_str = tokens[i + 1];
-                let times: Vec<&str> = time_range_str.split('-').collect();
-                if times.len() == 2 {
-                    let start_time = chrono::NaiveTime::parse_from_str(times[0], "%H:%M").unwrap();
-                    let end_time = chrono::NaiveTime::parse_from_str(times[1], "%H:%M").unwrap();
-                    let time_range = Some((start_time, end_time));
-                }
-                i += 2;
-            }
             _ => { i += 1; }
         }
     }
@@ -249,3 +239,4 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
 
     Some(Rule { user, group, as_user, cmd_regex, priority, allowed_roles, deny })
 }
+
