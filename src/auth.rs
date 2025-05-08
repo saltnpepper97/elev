@@ -87,7 +87,7 @@ impl ConversationHandler for CustomConversation {
    fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
         println!("DEBUG: CustomConversation prompt_echo_off called.");
         print!("{}", self.prompt);
-        io::stderr().flush().map_err(|e| {
+        io::stdout().flush().map_err(|e| {
             log_error(&format!("Failed to flush stderr: {}", e));
             pam_client2::ErrorCode::CONV_ERR
         })?;
