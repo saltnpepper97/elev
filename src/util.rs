@@ -117,7 +117,7 @@ pub fn run_command(
 
 pub fn get_roles_for_user(username: &str, config: &Config) -> Vec<String> {
     config.roles.iter()
-        .filter_map(|(role, users)| {
+        .filter_map(|(role, (users, _time_range))| {
             if users.contains(&username.to_string()) {
                 Some(role.clone())
             } else {
@@ -126,3 +126,4 @@ pub fn get_roles_for_user(username: &str, config: &Config) -> Vec<String> {
         })
         .collect()
 }
+
