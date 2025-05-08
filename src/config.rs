@@ -141,7 +141,7 @@ impl Config {
 }
 
 impl Rule {
-    fn matches(
+    pub fn matches(
         &self,
         user: &str,
         groups: &[String],
