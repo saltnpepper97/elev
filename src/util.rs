@@ -103,7 +103,7 @@ pub fn run_command(
     }
 
     // Switch user before running the command
-    switch_user(target_user)?;
+    switch_user(target_user).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // Now execute the command with all arguments
     let mut command = Command::new(cmd);
