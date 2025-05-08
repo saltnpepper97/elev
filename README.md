@@ -60,7 +60,7 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
 
 ## Example rule format:
 
-    allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>] [days <list>]
+    allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>]
 
 ## Examples
 
