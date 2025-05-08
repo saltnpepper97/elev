@@ -138,10 +138,6 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
             }
         };
 
-        if let Err(e) = ctx.set_user_prompt(Some(&format!("[ elev ] Please enter password for {}:", user))) {
-            log_error(&format!("Failed to set custom PAM prompt: {}", e));
-        }
-
         // Authenticate (prompts for password via Conversation)
         if let Err(e) = ctx.authenticate(Flag::NONE) {
             log_error(&format!("PAM authentication failed: {}", e));
