@@ -235,6 +235,7 @@ dependencies = [
  "nix",
  "pam-client2",
  "regex",
+ "rpassword",
  "syslog",
  "whoami",
 ]
