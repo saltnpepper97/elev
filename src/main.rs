@@ -1,5 +1,3 @@
-// src/main.rs
-
 mod config;
 mod auth;
 mod exec;
@@ -98,14 +96,17 @@ fn main() {
 
     // If login shell requested, skip command execution and launch login shell
     if matches.get_flag("login") {
+        use nix::unistd::User;
+        
         // Lookup target user's home directory and shell
-        let user_entry = match User::from_name(target_user).map_err(|e| {
-            log_error(&format!("Failed to lookup user '{}': {}", target_user, e));
-            exit(1);
-        }) {
-            Some(u) => u,
-            None => {
+        let user_entry = match User::from_name(target_user) {
+            Ok(Some(u)) => u,
+            Ok(None) => {
                 log_error(&format!("User '{}' not found", target_user));
+                exit(1);
+            }
+            Err(e) => {
+                log_error(&format!("Failed to lookup user '{}': {}", target_user, e));
                 exit(1);
             }
         };
