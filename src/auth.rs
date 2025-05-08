@@ -86,8 +86,8 @@ impl ConversationHandler for CustomConversation {
     // Handles password input (no echo)
     fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
         print!("{}", self.prompt);
-        io::stderr().flush().unwrap();
-        let password = read_password().unwrap_or_default();
+        io::stderr().flush().unwrap(); // Ensure the prompt is printed immediately
+        let password = read_password().unwrap_or_default(); // Read the password securely
         Ok(CString::new(password).unwrap())
     }
 
@@ -165,14 +165,15 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
 
     while attempts < MAX_ATTEMPTS {
         // Initialize a new PAM context (uses /etc/pam.d/elev)
-        let mut ctx = match Context::new("elev", Some(user), CustomConversation { prompt: format!("[ elev ] Please enter password for {}: ", user) }) {
+        let mut ctx = match Context::new("elev", Some(user), CustomConversation {
+            prompt: format!("[ elev ] Please enter password for {}: ", user),
+        }) {
             Ok(c) => c,
             Err(e) => {
                 log_error(&format!("PAM init failed: {}", e));
                 return false;
             }
         };
-
 
         // Authenticate (prompts for password via Conversation)
         if let Err(e) = ctx.authenticate(Flag::NONE) {
@@ -198,8 +199,6 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
         // Success: update state and return
         auth_state.update_last_authenticated();
         log_info(&format!("Successful login for user: {}", user));
-        // Optional: close session if desired
-        // let _ = ctx.close_session(Flag::NONE);
         return true;
     }
 
