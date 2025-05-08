@@ -115,8 +115,6 @@ fn get_roles_for_user(username: &str) -> Vec<String> {
     }
 }
 
-/// Perform PAM-based password verification, applying timeout and lockout logic.
-/// Perform PAM-based password verification, applying timeout and lockout logic.
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
