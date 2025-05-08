@@ -79,7 +79,7 @@ impl AuthState {
 }
 
 pub struct CustomConversation {
-    pub prompt: String, // Your custom prompt message
+    pub prompt: String,
 }
 
 impl ConversationHandler for CustomConversation {
