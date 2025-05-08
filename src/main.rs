@@ -11,7 +11,7 @@ use std::process::{exit, Command as ProcessCommand};
 use util::get_user_groups;
 use auth::{verify_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
-use nix::unistd::{getuid, geteuid};
+use nix::unistd::{getuid, geteuid, User};
 use nix::libc;
 use std::ffi::CStr;
 
@@ -39,7 +39,7 @@ fn main() {
     let euid = geteuid().as_raw();
 
     if uid == 0 {
-        println!("Do not run 'elev' directly as root.");
+        eprintln!("Do not run 'elev' directly as root.");
         exit(1);
     }
 
@@ -94,18 +94,15 @@ fn main() {
     // Who to run command as
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
 
-    // If login shell requested, skip command execution and launch login shell
+    // Login shell mode (-i)
     if matches.get_flag("login") {
-        use nix::unistd::User;
-        use exec::switch_user;
-        
-        // Lookup and switch to target user
-        if let Err(e) = switch_user(target_user) {
+        // Switch to target user
+        if let Err(e) = exec::switch_user(target_user) {
             log_error(&format!("Failed to switch to user '{}': {}", target_user, e));
             exit(1);
         }
 
-        // Lookup target user's home directory and shell
+        // Lookup target user's info
         let user_entry = match User::from_name(target_user) {
             Ok(Some(u)) => u,
             Ok(None) => {
@@ -120,6 +117,7 @@ fn main() {
         let home_dir = user_entry.dir;
         let shell_path = user_entry.shell;
 
+        // Launch login shell
         let mut shell = ProcessCommand::new(&shell_path);
         shell.arg("-l"); // login shell flag
         shell.env("HOME", &home_dir);
@@ -130,12 +128,6 @@ fn main() {
         shell.current_dir(&home_dir);
 
         // Replace current process
-        let err = shell.exec();
-        log_error(&format!("Failed to exec login shell: {}", err));
-        exit(1);
-    }
-
-    // Collect command and args
         let err = shell.exec();
         log_error(&format!("Failed to exec login shell: {}", err));
         exit(1);
