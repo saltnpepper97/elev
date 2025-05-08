@@ -1,3 +1,5 @@
+// src/main.rs
+
 mod config;
 mod auth;
 mod exec;
@@ -59,8 +61,15 @@ fn main() {
                 .default_value("root"),
         )
         .arg(
+            Arg::new("login")
+                .short('i')
+                .long("login")
+                .help("Run as login shell; skips command requirement")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("command")
-                .required_unless_present("login")
+                .required_unless_present("login")  // require command unless -i
                 .num_args(1..)
                 .allow_hyphen_values(true)
                 .trailing_var_arg(true)
@@ -72,13 +81,6 @@ fn main() {
                 .short('v')
                 .long("verbose")
                 .help("Enable verbose logging")
-                .action(clap::ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("login")
-                .short('i')
-                .long("login")
-                .help("Run command as a login shell")
                 .action(clap::ArgAction::SetTrue),
         )
         .get_matches();
@@ -94,24 +96,45 @@ fn main() {
     // Who to run command as
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
 
-    // Check for command or login shell flag
+    // If login shell requested, skip command execution and launch login shell
     if matches.get_flag("login") {
-        // If login flag is passed, skip command execution and launch shell
-        let mut shell_command = ProcessCommand::new("/bin/bash");
-        shell_command.arg("-l"); // login shell flag
-        
-        let err = shell_command.exec();
+        // Lookup target user's home directory and shell
+        let user_entry = match User::from_name(target_user).map_err(|e| {
+            log_error(&format!("Failed to lookup user '{}': {}", target_user, e));
+            exit(1);
+        }) {
+            Some(u) => u,
+            None => {
+                log_error(&format!("User '{}' not found", target_user));
+                exit(1);
+            }
+        };
+        let home_dir = user_entry.dir;
+        let shell_path = user_entry.shell;
+
+        let mut shell = ProcessCommand::new(&shell_path);
+        shell.arg("-l"); // login shell flag
+        shell.env("HOME", &home_dir);
+        shell.env("USER", target_user);
+        shell.env("LOGNAME", target_user);
+        shell.env("SHELL", &shell_path);
+        // Optionally set PS1 if not defined by user's rc
+        shell.env("PS1", "\u@\h: \w\$ ");
+        shell.current_dir(&home_dir);
+
+        // Replace current process
+        let err = shell.exec();
         log_error(&format!("Failed to exec login shell: {}", err));
         exit(1);
     }
 
-    let command_and_args = matches
+    // Collect command and args
+    let parts = matches
         .get_many::<String>("command")
-        .expect("Command is required")
+        .expect("Command is required when not using -i")
         .collect::<Vec<_>>();
-
-    let command = command_and_args[0].as_str();
-    let args: Vec<&str> = command_and_args[1..].iter().map(|s| s.as_str()).collect();
+    let command = parts[0].as_str();
+    let args: Vec<&str> = parts[1..].iter().map(|s| s.as_str()).collect();
 
     log_info(&format!(
         "elev invoked by '{}' to run '{}' as '{}'",
@@ -134,6 +157,7 @@ fn main() {
         }
     }
 
+    // Run the command
     exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
         use std::io::ErrorKind;
 
