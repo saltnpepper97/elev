@@ -85,7 +85,7 @@ pub struct CustomConversation {
 impl ConversationHandler for CustomConversation {
     // Handles password input (no echo)
    fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
-        // Display the prompt message
+        println!("DEBUG: CustomConversation prompt_echo_off called.");
         print!("{}", self.prompt);
         io::stderr().flush().map_err(|e| {
             log_error(&format!("Failed to flush stderr: {}", e));
