@@ -82,12 +82,6 @@ pub struct CustomConversation {
     pub prompt: String, // Your custom prompt message
 }
 
-impl CustomConversation {
-    pub fn new(prompt: String) -> Self {
-        CustomConversation { prompt }
-    }
-}
-
 impl ConversationHandler for CustomConversation {
     // Handles password input (no echo)
     fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
