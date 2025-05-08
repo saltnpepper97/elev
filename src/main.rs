@@ -183,7 +183,7 @@ fn main() {
     }
 
     // Run the command
-    run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
+    run_command(command, &args, target_user, &config, &mut auth_state).unwrap_or_else(|e| {
         use std::io::ErrorKind;
 
         match e.kind() {

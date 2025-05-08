@@ -115,6 +115,6 @@ pub fn run_command(
     command.status()
 }
 
-pub fn get_roles_for_user(username: &str) -> Vec<String> {
-    
+pub fn get_roles_for_user(_username: &str) -> Vec<String> {
+    Vec::new()    
 }
