@@ -23,6 +23,7 @@ pub struct Config {
     pub password_required: bool,
     pub roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>, // Time added here
 }
+
 impl Config {
     pub fn load(filename: &str) -> Result<Self, std::io::Error> {
         log_info(&format!("Loading configuration from file: {}", filename));  // Log configuration load
@@ -90,6 +91,9 @@ impl Config {
             }
         }
 
+        // Sort rules by priority
+        rules.sort_by(|a, b| b.priority.cmp(&a.priority)); // Sort in descending order
+
         log_info(&format!("Loaded {} rules from configuration", rules.len()));  // Log the number of rules loaded
 
         Ok(Config {
@@ -99,6 +103,7 @@ impl Config {
             roles,
         })
     }
+
     pub fn is_permitted(
         &self,
         username: &str,
@@ -107,7 +112,7 @@ impl Config {
         command: &str,
         user_roles: &[String],
     ) -> bool {
-        // Check the rules
+        // Check the rules in priority order (already sorted)
         for rule in &self.rules {
             if rule.matches(username, groups, target_user, command, user_roles) {
                 if rule.deny {
@@ -251,4 +256,3 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
 
     Some(Rule { user, group, as_user, cmd_regex, priority, allowed_roles, deny })
 }
-
