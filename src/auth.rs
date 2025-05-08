@@ -108,13 +108,21 @@ impl ConversationHandler for CustomConversation {
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
+    // Here you would retrieve or define a rule related to this user
+    // For example, you could iterate through the rules and find the appropriate one
+    let rule = config.rules.iter().find(|r| r.user.as_deref() == Some(user));
+
     if !config.password_required {
         log_info("Password authentication skipped.");
         return true;
     }
-    if !config.requires_password_for_rule(&rule) {
-        log_info("Password authentication skipped.");
-        return true;
+    
+    // If a rule exists for the user, check the password requirement for that rule
+    if let Some(rule) = rule {
+        if !config.requires_password_for_rule(rule) {
+            log_info("Password authentication skipped based on rule.");
+            return true;
+        }
     }
 
     if auth_state.check_lockout() {
