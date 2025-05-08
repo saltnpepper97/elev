@@ -114,9 +114,15 @@ impl Config {
     #[allow(dead_code)]
     /// Check if a specific rule or global requires password
     pub fn requires_password_for_rule(&self, rule: &Rule) -> bool {
-        rule.password_required.unwrap_or(self.password_required)
+        // First check the rule's password_required setting if it exists
+        if let Some(rule_password_required) = rule.password_required {
+            return rule_password_required; // Rule-specific setting takes priority
+        }
+    
+        // If no rule-specific setting is provided, fallback to global setting
+        self.password_required
     }
-
+    
     pub fn is_permitted(
         &self,
         username: &str,
