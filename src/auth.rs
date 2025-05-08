@@ -1,12 +1,12 @@
-use pam::{
-    authenticate, acct_mgmt, end, start, PamFlag, PamReturnCode, PasswordConv,
-};
-use std::fs::{create_dir_all, read_to_string, write};
+// src/auth.rs
+
+use pam_client2::{Context, Flag};
+use pam_client2::conv_cli::Conversation;
+use std::fs::{read_to_string, write, create_dir_all};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::logs::{log_debug, log_error, log_info};
 use crate::Config;
-use rpassword::prompt_password;
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
@@ -100,6 +100,7 @@ fn get_roles_for_user(username: &str) -> Vec<String> {
     }
 }
 
+/// Perform PAM-based password verification, applying timeout and lockout logic.
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
@@ -116,47 +117,46 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
     let mut attempts = 0;
 
     while attempts < MAX_ATTEMPTS {
-        // 1) Get password
-        let password = match prompt_password(format!("Password for {}: ", user)) {
-            Ok(p) => p,
-            Err(_) => return false,
-        };
-
-        // 2) Build PAM conversation and set credentials
-        let mut conv = PasswordConv::new();
-        conv.set_credentials(user, password);
-
-        // 3) Start PAM transaction
-        let mut handle = match start("elev", Some(user), &conv) {
-            Ok(h) => h,
+        // Initialize a new PAM context (uses /etc/pam.d/elev)
+        let mut ctx = match Context::new("elev", Some(user), Conversation::new()) {
+            Ok(c) => c,
             Err(e) => {
-                log_error(&format!("PAM start failed: {}", e));
+                log_error(&format!("PAM init failed: {}", e));
                 return false;
             }
         };
 
-        // 4) Authenticate
-        if let Err(code) = authenticate(&mut handle, PamFlag::None) {
-            log_error(&format!("PAM auth failed: {:?}", code));
+        // Authenticate (prompts for password via Conversation)
+        if let Err(e) = ctx.authenticate(Flag::NONE) {
+            log_error(&format!("PAM authentication failed: {}", e));
             attempts += 1;
             auth_state.increment_failed_attempts();
-            eprintln!("Incorrect password (attempt {}/{})", attempts, MAX_ATTEMPTS);
+            eprintln!("Failed login attempt #{}", attempts);
+            if attempts < MAX_ATTEMPTS {
+                eprintln!("Incorrect password. {} attempt(s) left.", MAX_ATTEMPTS - attempts);
+            }
             continue;
         }
 
-        // 5) Account checks
-        if let Err(code) = acct_mgmt(&mut handle, PamFlag::None) {
-            eprintln!("Account validation failed: {:?}", code);
+        // Account management checks (e.g., expired, locked)
+        if let Err(e) = ctx.acct_mgmt(Flag::NONE) {
+            eprintln!("Account validation failed: {}", e);
             return false;
         }
 
-        // 6) Success path: update state & clean up
+        // Optional: open a session
+        let _ = ctx.open_session(Flag::NONE);
+
+        // Success
         auth_state.update_last_authenticated();
-        log_info(&format!("Successful login for user '{}'", user));
-        let _ = end(handle, PamReturnCode::Success);
+        log_info(&format!("Successful login for user: {}", user));
+
+        // Optional: close session
+        let _ = ctx.close_session(Flag::NONE);
         return true;
     }
 
-    eprintln!("User '{}' failed to authenticate after {} attempts.", user, MAX_ATTEMPTS);
+    eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
     false
 }
+
