@@ -26,12 +26,11 @@
 
 1. **Switch to the root user**:
 
-   ```bash
-   su -
+       su -
 
-    Run the installer from the project root:
+2. **Run the installer from the project root**:
 
-    ./install.sh
+       ./install.sh
 
 This script will:
 
@@ -61,26 +60,26 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
 
 ##Example rule format:
 
-      allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>] [days <list>]
+    allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>] [days <list>]
 
 ##Examples
 
-      # Allow user "alice" to run "journalctl" as root at any time
-      allow alice role=admin as root cmd journalctl
+    # Allow user "alice" to run "journalctl" as root at any time
+    allow alice role=admin as root cmd journalctl
 
-      # Allow any member of group "admins" to run any command as any user, high priority
-      allow :admins role=superuser cmd * priority 100
+    # Allow any member of group "admins" to run any command as any user, high priority
+    allow :admins role=superuser cmd * priority 100
 
-      # Deny all users from rebooting or shutting down the system
-      deny all cmd reboot
-      deny all cmd shutdown
+    # Deny all users from rebooting or shutting down the system
+    deny all cmd reboot
+    deny all cmd shutdown
 
 ##Usage
 
 Invoke elev just like you would sudo or doas:
 
-      $ elev journalctl -xe
+    $ elev journalctl -xe
 
 For detailed help:
 
-      $ elev --help
+    $ elev --help
