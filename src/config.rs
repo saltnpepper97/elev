@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use regex::Regex;
 use std::time::Duration;
+use std::collections::HashMap;
 use crate::logs::{log_info, log_warn, log_error};
 
 #[derive(Clone, Debug)]
@@ -20,6 +21,7 @@ pub struct Config {
     pub rules: Vec<Rule>,
     pub timeout: Duration,
     pub password_required: bool,
+    pub roles: HashMap<String, Vec<String>>,
 }
 
 impl Config {
@@ -30,22 +32,45 @@ impl Config {
         let mut rules = Vec::new();
         let mut timeout = Duration::from_secs(60);
         let mut password_required = true;
+        let mut roles: HashMap<String, Vec<String>> = HashMap::new();
+        let mut raw_lines = Vec::new();
 
         for line in reader.lines() {
-            let line = line?;
-            if let Some(rule) = parse_rule(&line) {
+            let line = line?.trim().to_string();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+        
+            if let Some(role_def) = line.strip_prefix("role ") {
+                let mut parts = role_def.splitn(2, ' ');
+                if let Some(role_name) = parts.next() {
+                    if let Some(users_str) = parts.next() {
+                        let users: Vec<String> = users_str
+                            .split(',')
+                            .map(|s| s.trim().to_string())
+                            .collect();
+                        roles.insert(role_name.to_string(), users);
+                        log_info(&format!("Defined role '{}' with members {:?}", role_name, users));
+                    }
+                }
+            } else {
+                raw_lines.push(line);
+            }
+        }
+        
+        // Second pass: parse rules and global settings
+        for line in &raw_lines {
+            if let Some(rule) = parse_rule(&line, &roles) {
                 rules.push(rule);
             }
-
-            // Check for timeout setting in the config file
+        
             if let Some(timeout_str) = line.strip_prefix("timeout ") {
                 if let Ok(timeout_value) = timeout_str.trim().parse::<u64>() {
                     timeout = Duration::from_secs(timeout_value);
                     log_info(&format!("Loaded timeout value from config: {} seconds", timeout_value));
                 }
             }
-
-            // Check for password_required setting in the config file
+        
             if let Some(password_str) = line.strip_prefix("password_required ") {
                 if let Ok(pass_req) = password_str.trim().parse::<bool>() {
                     password_required = pass_req;
@@ -152,7 +177,7 @@ fn wildcard_to_regex(pattern: &str) -> String {
     regex
 }
 
-fn parse_rule(line: &str) -> Option<Rule> {
+fn parse_rule(line: &str, roles_map: &HashMap<String, Vec<String>>) -> Option<Rule> {
     let tokens: Vec<&str> = line.split_whitespace().collect();
     if tokens.is_empty() {
         return None;
