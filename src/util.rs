@@ -115,6 +115,14 @@ pub fn run_command(
     command.status()
 }
 
-pub fn get_roles_for_user(_username: &str) -> Vec<String> {
-    Vec::new()    
+pub fn get_roles_for_user(username: &str, config: &Config) -> Vec<String> {
+    config.roles.iter()
+        .filter_map(|(role, users)| {
+            if users.contains(&username.to_string()) {
+                Some(role.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
