@@ -112,6 +112,11 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
         log_info("Password authentication skipped.");
         return true;
     }
+    if !config.requires_password_for_rule(&rule) {
+        log_info("Password authentication skipped.");
+        return true;
+    }
+
     if auth_state.check_lockout() {
         eprintln!("Account temporarily locked due to too many failures.");
         return false;
