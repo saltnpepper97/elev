@@ -83,7 +83,7 @@ fn main() {
                 .short('K')
                 .long("clear-timestamp")
                 .help("Clear authentication timestamp, forcing re-prompt on next use")
-                .action(clap::value_parser!(bool))
+                .action(clap::ArgAction::SetTrue))
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
