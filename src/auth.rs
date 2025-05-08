@@ -78,20 +78,34 @@ impl AuthState {
     }
 }
 
-pub struct CustomConversation;
+pub struct CustomConversation {
+    pub prompt: String,
+}
 
 impl CustomConversation {
+    fn new(prompt: String) -> Self {
+        CustomConversation { prompt }
+    }
+
     fn converse(&mut self, messages: &[Message]) -> Result<Vec<Reply>, io::Error> {
         let mut replies = Vec::with_capacity(messages.len());
 
         for msg in messages {
             match msg.style {
                 MsgStyle::PromptEchoOff => {
-                    print!("{}", msg.msg);
+                    // Display the custom prompt
+                    print!("{}", self.prompt);
                     io::stderr().flush().unwrap();
 
-                    let password = rpassword::read_password().unwrap_or_default();
-                    replies.push(Reply::new(password));
+                    // Enhanced error handling for password input
+                    match rpassword::read_password() {
+                        Ok(password) => replies.push(Reply::new(password)),
+                        Err(e) => {
+                            log_error(&format!("Error reading password: {}", e));
+                            eprintln!("Failed to read password. Please try again.");
+                            replies.push(Reply::new(String::new())); // empty reply in case of error
+                        }
+                    }
                 }
                 MsgStyle::PromptEchoOn => {
                     print!("{}", msg.msg);
