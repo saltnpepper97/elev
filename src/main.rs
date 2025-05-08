@@ -60,7 +60,7 @@ fn main() {
         )
         .arg(
             Arg::new("command")
-                .required(false)  // Make command optional when -i is used
+                .required_unless_present("login")
                 .num_args(1..)
                 .allow_hyphen_values(true)
                 .trailing_var_arg(true)
