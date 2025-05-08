@@ -99,6 +99,25 @@ impl Config {
             roles,
         })
     }
+    pub fn is_permitted(
+        &self,
+        username: &str,
+        groups: &[String],
+        target_user: &str,
+        command: &str,
+        user_roles: &[String],
+    ) -> bool {
+        // Check the rules
+        for rule in &self.rules {
+            if rule.matches(username, groups, target_user, command, user_roles) {
+                if rule.deny {
+                    return false;
+                }
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl Rule {
