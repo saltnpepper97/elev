@@ -52,6 +52,13 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .about("elev: a sudo/doas-like drop-in replacement")
         .arg(
+            Arg::new("reset_auth")
+                .short('K')
+                .long("reset-auth")
+                .help("Invalidate cached credentials (clears authentication state)")
+                .action(clap::ArgAction::SetTrue)
+        )
+        .arg(
             Arg::new("user")
                 .short('u')
                 .long("user")
