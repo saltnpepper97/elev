@@ -14,7 +14,6 @@ pub struct Rule {
     pub priority: u8,
     pub allowed_roles: Option<Vec<String>>,
     pub deny: bool,
-    pub time_range: Option<(chrono::NaiveTime, chrono::NaiveTime)>,
 }
 
 #[derive(Debug)]
@@ -22,9 +21,8 @@ pub struct Config {
     pub rules: Vec<Rule>,
     pub timeout: Duration,
     pub password_required: bool,
-    pub roles: HashMap<String, Vec<String>>,
+    pub roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>, // Time added here
 }
-
 impl Config {
     pub fn load(filename: &str) -> Result<Self, std::io::Error> {
         log_info(&format!("Loading configuration from file: {}", filename));  // Log configuration load
@@ -33,7 +31,7 @@ impl Config {
         let mut rules = Vec::new();
         let mut timeout = Duration::from_secs(60);
         let mut password_required = true;
-        let mut roles: HashMap<String, Vec<String>> = HashMap::new();
+        let mut roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)> = HashMap::new();
         let mut raw_lines = Vec::new();
 
         for line in reader.lines() {
@@ -43,16 +41,28 @@ impl Config {
             }
         
             if let Some(role_def) = line.strip_prefix("role ") {
-                let mut parts = role_def.splitn(2, ' ');
+                let mut parts = role_def.splitn(3, ' ');
                 if let Some(role_name) = parts.next() {
+                    let mut users = Vec::new();
+                    let mut time_range = None;
+                    
                     if let Some(users_str) = parts.next() {
-                        let users: Vec<String> = users_str
-                            .split(',')
+                        users = users_str.split(',')
                             .map(|s| s.trim().to_string())
                             .collect();
-                        roles.insert(role_name.to_string(), users.clone());
-                        log_info(&format!("Defined role '{}' with members {:?}", role_name, users));
                     }
+
+                    if let Some(timing_str) = parts.next() {
+                        let times: Vec<&str> = timing_str.split('-').collect();
+                        if times.len() == 2 {
+                            let start_time = chrono::NaiveTime::parse_from_str(times[0], "%H:%M").unwrap();
+                            let end_time = chrono::NaiveTime::parse_from_str(times[1], "%H:%M").unwrap();
+                            time_range = Some((start_time, end_time));
+                        }
+                    }
+
+                    roles.insert(role_name.to_string(), (users, time_range));
+                    log_info(&format!("Defined role '{}' with members {:?} and timing {:?}", role_name, users, time_range));
                 }
             } else {
                 raw_lines.push(line);
@@ -88,36 +98,6 @@ impl Config {
             password_required,
             roles,
         })
-    }
-
-    pub fn is_permitted(
-        &self,
-        user: &str,
-        groups: &[String],
-        target_user: &str,
-        command: &str,
-        user_roles: &[String],
-    ) -> bool {
-        log_info(&format!("Checking permission for user '{}' to run command '{}'", user, command));  // Log permission check
-        let mut rules = self.rules.clone();
-        rules.sort_by(|a, b| b.priority.cmp(&a.priority));
-
-        for rule in &rules {
-            if rule.deny && rule.matches(user, groups, target_user, command, user_roles) {
-                log_warn(&format!("Permission denied for user '{}' to run command '{}'", user, command));  // Log deny rule match
-                return false;
-            }
-        }
-
-        for rule in &rules {
-            if !rule.deny && rule.matches(user, groups, target_user, command, user_roles) {
-                log_info(&format!("Permission granted for user '{}' to run command '{}'", user, command));  // Log allow rule match
-                return true;
-            }
-        }
-
-        log_error(&format!("Permission check failed for user '{}' to run command '{}'", user, command));  // Log permission failure
-        false
     }
 }
 
