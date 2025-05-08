@@ -97,7 +97,14 @@ fn main() {
     // If login shell requested, skip command execution and launch login shell
     if matches.get_flag("login") {
         use nix::unistd::User;
+        use exec::switch_user;
         
+        // Lookup and switch to target user
+        if let Err(e) = switch_user(target_user) {
+            log_error(&format!("Failed to switch to user '{}': {}", target_user, e));
+            exit(1);
+        }
+
         // Lookup target user's home directory and shell
         let user_entry = match User::from_name(target_user) {
             Ok(Some(u)) => u,
@@ -123,6 +130,12 @@ fn main() {
         shell.current_dir(&home_dir);
 
         // Replace current process
+        let err = shell.exec();
+        log_error(&format!("Failed to exec login shell: {}", err));
+        exit(1);
+    }
+
+    // Collect command and args
         let err = shell.exec();
         log_error(&format!("Failed to exec login shell: {}", err));
         exit(1);
