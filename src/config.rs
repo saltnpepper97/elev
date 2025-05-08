@@ -14,6 +14,7 @@ pub struct Rule {
     pub priority: u8,
     pub allowed_roles: Option<Vec<String>>,
     pub deny: bool,
+    #[allow(dead_code)]
     pub password_required: Option<bool>, // per-rule override
 }
 
@@ -46,6 +47,7 @@ impl Config {
             if let Some(role_def) = line.strip_prefix("role ") {
                 let mut parts = role_def.splitn(3, ' ');
                 if let Some(role_name) = parts.next() {
+                    // explicit type annotation to avoid E0282
                     let users: Vec<String> = parts
                         .next()
                         .unwrap_or("")
@@ -109,6 +111,7 @@ impl Config {
         })
     }
 
+    #[allow(dead_code)]
     /// Check if a specific rule or global requires password
     pub fn requires_password_for_rule(&self, rule: &Rule) -> bool {
         rule.password_required.unwrap_or(self.password_required)
@@ -195,7 +198,8 @@ fn parse_rule(
     }
 
     let mut deny = false;
-    let mut i = 0;
+    // initialize index only within match so no unused assignment
+    let mut i: usize;
     match tokens[0] {
         "deny" => { deny = true; i = 1; }
         "allow" => { i = 1; }
@@ -206,12 +210,11 @@ fn parse_rule(
     let mut user = None;
     let mut group = None;
     if i < tokens.len() {
-        if let Some(rest) = tokens.get(i) {
-            if rest.starts_with(':') {
-                group = Some(rest[1..].to_string());
-            } else {
-                user = Some(rest.to_string());
-            }
+        let rest = tokens[i];
+        if rest.starts_with(':') {
+            group = Some(rest[1..].to_string());
+        } else {
+            user = Some(rest.to_string());
         }
         i += 1;
     }
@@ -224,8 +227,8 @@ fn parse_rule(
 
     while i < tokens.len() {
         match tokens[i] {
-            "as" if i+1 < tokens.len() => { as_user = Some(tokens[i+1].to_string()); i += 2; }
-            "cmd" if i+1 < tokens.len() => {
+            "as" if i + 1 < tokens.len() => { as_user = Some(tokens[i+1].to_string()); i += 2; }
+            "cmd" if i + 1 < tokens.len() => {
                 let pat = tokens[i+1];
                 let re_str = if pat.contains('*') || pat.contains('?') {
                     wildcard_to_regex(pat)
@@ -237,15 +240,9 @@ fn parse_rule(
                 cmd_regex = Some(Regex::new(&re_str).unwrap());
                 i += 2;
             }
-            "cmd_regex" if i+1 < tokens.len() => {
-                cmd_regex = Some(Regex::new(tokens[i+1]).unwrap());
-                i += 2;
-            }
-            "priority" if i+1 < tokens.len() => {
-                priority = tokens[i+1].parse().unwrap_or(0);
-                i += 2;
-            }
-            "roles" if i+1 < tokens.len() => {
+            "cmd_regex" if i + 1 < tokens.len() => { cmd_regex = Some(Regex::new(tokens[i+1]).unwrap()); i += 2; }
+            "priority" if i + 1 < tokens.len() => { priority = tokens[i+1].parse().unwrap_or(0); i += 2; }
+            "roles" if i + 1 < tokens.len() => {
                 let parsed = tokens[i+1].split(',').map(str::to_string).collect::<Vec<_>>();
                 for r in &parsed {
                     if !roles_map.contains_key(r) {
@@ -255,10 +252,7 @@ fn parse_rule(
                 allowed_roles = Some(parsed);
                 i += 2;
             }
-            "password_required" if i+1 < tokens.len() => {
-                password_required = tokens[i+1].parse().ok();
-                i += 2;
-            }
+            "password_required" if i + 1 < tokens.len() => { password_required = tokens[i+1].parse().ok(); i += 2; }
             _ => { i += 1; }
         }
     }
