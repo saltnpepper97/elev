@@ -85,6 +85,7 @@ impl Config {
             rules,
             timeout,
             password_required,
+            roles,
         })
     }
 
