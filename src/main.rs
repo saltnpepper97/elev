@@ -1,3 +1,5 @@
+// src/main.rs
+
 mod config;
 mod auth;
 mod exec;
@@ -49,6 +51,8 @@ fn main() {
     }
 
     let matches = Command::new("elev")
+        .version(env!("CARGO_PKG_VERSION"))
+        .about("Elev: a sudo/doas-like drop-in replacement with PAM integration")
         .arg(
             Arg::new("user")
                 .short('u')
