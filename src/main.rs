@@ -119,8 +119,7 @@ fn main() {
         shell.env("USER", target_user);
         shell.env("LOGNAME", target_user);
         shell.env("SHELL", &shell_path);
-        // Optionally set PS1 if not defined by user's rc
-        shell.env("PS1", "\u@\h: \w\$ ");
+        shell.env("PS1", r"\u@\h: \w\$ ");
         shell.current_dir(&home_dir);
 
         // Replace current process
