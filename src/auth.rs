@@ -5,7 +5,7 @@ use std::io::{self, Write};
 use std::time::{Instant, Duration};
 use crate::logs::{log_debug, log_info, log_error};
 use crate::Config;
-use crate::util::{get_user_groups, store_auth_timestamp, load_last_auth, auth_timestamp_path};
+use crate::util::{get_user_groups, store_auth_timestamp, load_last_auth, auth_timestamp_path, get_roles_for_user};
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
