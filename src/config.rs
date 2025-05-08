@@ -14,6 +14,7 @@ pub struct Rule {
     pub priority: u8,
     pub allowed_roles: Option<Vec<String>>,
     pub deny: bool,
+    pub time_range: Option<(chrono::NaiveTime, chrono::NaiveTime)>,
 }
 
 #[derive(Debug)]
@@ -235,6 +236,7 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, Vec<String>>) -> Option<Ru
                 allowed_roles = Some(parsed_roles);
                 i += 2;
             }
+
             _ => { i += 1; }
         }
     }
