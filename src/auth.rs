@@ -84,11 +84,22 @@ pub struct CustomConversation {
 
 impl ConversationHandler for CustomConversation {
     // Handles password input (no echo)
-    fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
+   fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
+        // Display the prompt message
         print!("{}", self.prompt);
-        io::stderr().flush().unwrap(); // Ensure the prompt is printed immediately
-        let password = read_password().unwrap_or_default(); // Read the password securely
-        Ok(CString::new(password).unwrap())
+        io::stderr().flush().map_err(|e| {
+            log_error(&format!("Failed to flush stderr: {}", e));
+            pam_client2::ErrorCode::CONV_ERR
+        })?;
+    
+        // Read the password input
+        match rpassword::read_password() {
+            Ok(password) => Ok(CString::new(password).unwrap_or_default()),
+            Err(e) => {
+                log_error(&format!("Failed to read password: {}", e));
+                Err(pam_client2::ErrorCode::CONV_ERR)
+            }
+        }
     }
 
     // Handles normal input (with echo)
