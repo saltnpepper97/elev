@@ -1,6 +1,5 @@
 mod config;
 mod auth;
-mod exec;
 mod util;
 mod logs;
 

@@ -2,10 +2,10 @@ use rpassword::read_password;
 use pam_client2::{Context, Flag, ConversationHandler};
 use std::ffi::{CStr, CString};
 use std::io::{self, Write};
-use std::time::{Instant, Duration}
+use std::time::{Instant, Duration};
 use crate::logs::{log_debug, log_info, log_error};
 use crate::Config;
-use crate::util::{get_user_groups, store_auth_timestamp, load_last_auth};
+use crate::util::{get_user_groups, store_auth_timestamp, load_last_auth, auth_timestamp_path};
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,

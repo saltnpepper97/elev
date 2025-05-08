@@ -1,9 +1,9 @@
 use std::fs::{read_to_string, create_dir_all, write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use nix::unistd::User;
+use nix::unistd::{setuid, User};
 use std::process::{Command, ExitStatus};
-use crate::logs::{log_info, log_warning, log_error};
+use crate::logs::{log_info, log_warn, log_error};
 use crate::{Config, AuthState};
 
 /// Retrieves the groups of a user by calling the `id` command.
