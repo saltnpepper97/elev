@@ -236,7 +236,16 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, Vec<String>>) -> Option<Ru
                 allowed_roles = Some(parsed_roles);
                 i += 2;
             }
-
+            "timing" if i + 1 < tokens.len() => {
+                let time_range_str = tokens[i + 1];
+                let times: Vec<&str> = time_range_str.split('-').collect();
+                if times.len() == 2 {
+                    let start_time = chrono::NaiveTime::parse_from_str(times[0], "%H:%M").unwrap();
+                    let end_time = chrono::NaiveTime::parse_from_str(times[1], "%H:%M").unwrap();
+                    time_range = Some((start_time, end_time));
+                }
+                i += 2;
+            }
             _ => { i += 1; }
         }
     }
