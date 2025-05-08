@@ -49,6 +49,8 @@ fn main() {
     }
 
     let matches = Command::new("elev")
+        .version(env!("CARGO_PKG_VERSION"))
+        .about("elev: a sudo/doas-like drop-in replacement")
         .arg(
             Arg::new("user")
                 .short('u')
