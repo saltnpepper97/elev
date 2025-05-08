@@ -82,16 +82,16 @@ pub struct CustomConversation {
 }
 
 impl ConversationHandler for CustomConversation {
-    fn prompt_echo_on(&mut self, msg: &CStr) -> Result<CString, ErrorCode> {
-        print!("{}", msg.to_string_lossy());
+    fn prompt_echo_on(&mut self, _msg: &CStr) -> Result<CString, ErrorCode> {
+        print!("{}", self.prompt);
         std::io::stdout().flush().ok();
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).map_err(|_| ErrorCode::CONV_ERR)?;
         Ok(CString::new(input.trim()).unwrap())
     }
-
-    fn prompt_echo_off(&mut self, msg: &CStr) -> Result<CString, ErrorCode> {
-        print!("{}", msg.to_string_lossy());
+    
+    fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, ErrorCode> {
+        print!("{}", self.prompt);
         std::io::stdout().flush().ok();
         let input = rpassword::read_password().map_err(|_| ErrorCode::CONV_ERR)?;
         Ok(CString::new(input.trim()).unwrap())
