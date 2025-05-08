@@ -76,7 +76,7 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
 
 ## Usage
 
-Invoke elev just like you would sudo or doas:
+Invoke **elev** just like you would `sudo` or `doas`:
 
     $ elev journalctl -xe
 
