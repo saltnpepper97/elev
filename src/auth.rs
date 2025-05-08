@@ -1,5 +1,6 @@
 use rpassword::read_password;
 use pam_client2::{Context, Flag, ConversationHandler};
+use std::ffi::{CStr, CString};
 use std::io::{self, Write};
 use std::fs::{read_to_string, write, create_dir_all};
 use std::path::PathBuf;
@@ -88,40 +89,31 @@ impl CustomConversation {
 }
 
 impl ConversationHandler for CustomConversation {
-    fn handle(&mut self, messages: &[String]) -> Result<Vec<String>, io::Error> {
-        let mut replies = Vec::with_capacity(messages.len());
+    // Handles password input (no echo)
+    fn prompt_echo_off(&mut self, _msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
+        print!("{}", self.prompt);
+        io::stderr().flush().unwrap();
+        let password = read_password().unwrap_or_default();
+        Ok(CString::new(password).unwrap())
+    }
 
-        for msg in messages {
-            match msg.as_str() {
-                // Handle each type of message as needed
-                "PromptEchoOff" => {
-                    print!("{}", self.prompt);
-                    io::stderr().flush().unwrap();
-                    let password = read_password().unwrap_or_default();
-                    replies.push(password);
-                }
-                "PromptEchoOn" => {
-                    print!("{}", msg);
-                    io::stderr().flush().unwrap();
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input).unwrap();
-                    replies.push(input.trim_end().to_string());
-                }
-                "ErrorMsg" => {
-                    eprintln!("{}", msg);
-                    replies.push(String::new());
-                }
-                "TextInfo" => {
-                    println!("{}", msg);
-                    replies.push(String::new());
-                }
-                _ => {
-                    replies.push(String::new());
-                }
-            }
-        }
+    // Handles normal input (with echo)
+    fn prompt_echo_on(&mut self, msg: &CStr) -> Result<CString, pam_client2::ErrorCode> {
+        print!("{}", msg.to_str().unwrap());
+        io::stderr().flush().unwrap();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        Ok(CString::new(input.trim_end()).unwrap())
+    }
 
-        Ok(replies)
+    // Handles informational messages
+    fn text_info(&mut self, msg: &CStr) {
+        println!("{}", msg.to_str().unwrap());
+    }
+
+    // Handles error messages
+    fn error_msg(&mut self, msg: &CStr) {
+        eprintln!("{}", msg.to_str().unwrap());
     }
 }
 
