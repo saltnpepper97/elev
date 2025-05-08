@@ -104,7 +104,7 @@ fn main() {
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
 
     let config = Config::load("/etc/elev.conf").expect("Failed to load config");
-    let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
+    let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone(), &config);
 
     // Reset authentication timestamp (-K)
     if matches.get_flag("reset_auth") {
@@ -171,7 +171,7 @@ fn main() {
         exit(1);
     });
 
-    let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
+    let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone(), &config);
 
     // Enforce timeout and password
     if !auth_state.check_timeout() {
