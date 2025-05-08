@@ -77,6 +77,34 @@ impl AuthState {
     }
 }
 
+pub struct CustomConversation {
+    pub prompt: String,
+}
+
+impl ConversationHandler for CustomConversation {
+    fn prompt_echo(&mut self, _msg: &str) -> Option<String> {
+        print!("{}", self.prompt);
+        std::io::stdout().flush().ok()?;
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).ok()?;
+        Some(input.trim().to_string())
+    }
+
+    fn prompt_blind(&mut self, _msg: &str) -> Option<String> {
+        print!("{}", self.prompt);
+        std::io::stdout().flush().ok()?;
+        rpassword::read_password().ok()
+    }
+
+    fn info(&mut self, msg: &str) {
+        println!("{}", msg);
+    }
+
+    fn error(&mut self, msg: &str) {
+        eprintln!("{}", msg);
+    }
+}
+
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
