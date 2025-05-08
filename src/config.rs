@@ -162,6 +162,12 @@ impl Rule {
             }
         }
 
+        if let Some((start_time, end_time)) = &self.time_range {
+            let current_time = chrono::Local::now().naive_local().time();
+            if current_time < *start_time || current_time > *end_time {
+                return false; // Time is outside the allowed range
+            }
+        }
         true
     }
 }
