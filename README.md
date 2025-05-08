@@ -36,7 +36,7 @@ This script will:
 
 Compile elev in release mode
 
-Install the binary to /usr/local/bin/elev
+Install the binary to /usr/bin/elev
 
 Create a default config at /etc/elev.conf
 
