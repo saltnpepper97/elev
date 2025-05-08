@@ -165,7 +165,7 @@ fn wildcard_to_regex(pattern: &str) -> String {
     regex
 }
 
-fn parse_rule(line: &str, roles_map: &HashMap<String, Vec<String>>) -> Option<Rule> {
+fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>) -> Option<Rule> {
     let tokens: Vec<&str> = line.split_whitespace().collect();
     if tokens.is_empty() {
         return None;
