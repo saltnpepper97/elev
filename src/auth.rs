@@ -1,5 +1,6 @@
 use rpassword;
 use pam_client2::{Context, Flag};
+use pam_client2::conv_cli::Conversation;
 use std::io::{self, Write};
 use std::fs::{read_to_string, write, create_dir_all};
 use std::path::PathBuf;
@@ -77,25 +78,25 @@ impl AuthState {
     }
 }
 
-pub struct CustomConversation {
-    pub prompt: String,
-}
+pub struct CustomConversation;
 
-impl Conv for CustomConversation {
-    fn converse(&mut self, messages: &[Message]) -> Result<Vec<Reply>, pam_client2::PamError> {
+impl CustomConversation {
+    fn converse(&mut self, messages: &[Message]) -> Result<Vec<Reply>, io::Error> {
         let mut replies = Vec::with_capacity(messages.len());
+
         for msg in messages {
-            match msg.msg_style {
+            match msg.style {
                 MsgStyle::PromptEchoOff => {
-                    // Use your custom prompt
-                    eprint!("{}", self.prompt);
+                    print!("{}", msg.msg);
                     io::stderr().flush().unwrap();
-                    let password = rpassword::read_password().unwrap();
+
+                    let password = rpassword::read_password().unwrap_or_default();
                     replies.push(Reply::new(password));
                 }
                 MsgStyle::PromptEchoOn => {
-                    eprint!("{}", msg.msg);
+                    print!("{}", msg.msg);
                     io::stderr().flush().unwrap();
+
                     let mut input = String::new();
                     io::stdin().read_line(&mut input).unwrap();
                     replies.push(Reply::new(input.trim_end().to_string()));
@@ -108,8 +109,12 @@ impl Conv for CustomConversation {
                     println!("{}", msg.msg);
                     replies.push(Reply::new(String::new()));
                 }
+                _ => {
+                    replies.push(Reply::new(String::new()));
+                }
             }
         }
+
         Ok(replies)
     }
 }
