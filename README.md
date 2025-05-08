@@ -26,11 +26,11 @@
 
 1. **Switch to the root user**:
 
-    su -
+   su -
 
-2. **Run the installer from the project root**:
+3. **Run the installer from the project root**:
 
-    ./install.sh
+   ./install.sh
 
 This script will:
 
