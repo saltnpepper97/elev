@@ -46,7 +46,7 @@ impl Config {
             if let Some(role_def) = line.strip_prefix("role ") {
                 let mut parts = role_def.splitn(3, ' ');
                 if let Some(role_name) = parts.next() {
-                    let users = parts
+                    let users: Vec<String> = parts
                         .next()
                         .unwrap_or("")
                         .split(',')
