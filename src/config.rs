@@ -182,7 +182,10 @@ fn wildcard_to_regex(pattern: &str) -> String {
     regex
 }
 
-fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>) -> Option<Rule> {
+fn parse_rule(
+    line: &str,
+    roles_map: &HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>,
+) -> Option<Rule> {
     let tokens: Vec<&str> = line.split_whitespace().collect();
     if tokens.is_empty() {
         return None;
@@ -191,8 +194,13 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
     let mut deny = false;
     let mut i = 0;
     match tokens[i] {
-        "deny" => { deny = true; i += 1; }
-        "allow" => { i += 1; }
+        "deny" => {
+            deny = true;
+            i += 1;
+        }
+        "allow" => {
+            i += 1;
+        }
         _ => return None,
     }
 
@@ -209,9 +217,10 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
     }
 
     let mut as_user = None;
-    let mut command_pat = None;
+    let mut cmd_regex = None;
     let mut priority = 0;
     let mut allowed_roles = None;
+
     while i < tokens.len() {
         match tokens[i] {
             "as" if i + 1 < tokens.len() => {
@@ -219,7 +228,21 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
                 i += 2;
             }
             "cmd" if i + 1 < tokens.len() => {
-                command_pat = Some(tokens[i + 1].to_string());
+                let pat = tokens[i + 1];
+                let re_str = if pat.contains('*') || pat.contains('?') {
+                    wildcard_to_regex(pat)
+                } else if pat == "*" {
+                    String::from("^.*$")
+                } else {
+                    // Match against any full path where the basename is the given pattern
+                    format!(r"(^|.*/){}$", regex::escape(pat))
+                };
+                cmd_regex = Some(Regex::new(&re_str).unwrap_or_else(|_| Regex::new("^$").unwrap()));
+                i += 2;
+            }
+            "cmd_regex" if i + 1 < tokens.len() => {
+                let pattern = tokens[i + 1];
+                cmd_regex = Some(Regex::new(pattern).unwrap_or_else(|_| Regex::new("^$").unwrap()));
                 i += 2;
             }
             "priority" if i + 1 < tokens.len() => {
@@ -228,31 +251,29 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, (Vec<String>, Option<(chro
             }
             "roles" if i + 1 < tokens.len() => {
                 let parsed_roles: Vec<String> = tokens[i + 1].split(',').map(|s| s.to_string()).collect();
-            
-                // Validate roles exist in the map
+
                 for role in &parsed_roles {
                     if !roles_map.contains_key(role) {
                         log_warn(&format!("Rule references undefined role: '{}'", role));
                     }
                 }
-            
+
                 allowed_roles = Some(parsed_roles);
                 i += 2;
             }
-            _ => { i += 1; }
+            _ => {
+                i += 1;
+            }
         }
     }
 
-    let cmd_regex = command_pat.map(|pat| {
-        let re_str = if pat.contains('*') || pat.contains('?') {
-            wildcard_to_regex(&pat)
-        } else if pat == "*" {
-            String::from("^.*$")
-        } else {
-            format!("^{pat}$")
-        };
-        Regex::new(&re_str).unwrap_or_else(|_| Regex::new("^$").unwrap())
-    });
-
-    Some(Rule { user, group, as_user, cmd_regex, priority, allowed_roles, deny })
+    Some(Rule {
+        user,
+        group,
+        as_user,
+        cmd_regex,
+        priority,
+        allowed_roles,
+        deny,
+    })
 }
