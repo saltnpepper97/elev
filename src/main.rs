@@ -52,13 +52,6 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .about("elev: a sudo/doas-like drop-in replacement")
         .arg(
-            Arg::new("reset_auth")
-                .short('K')
-                .long("reset-auth")
-                .help("Invalidate cached credentials (clears authentication state)")
-                .action(clap::ArgAction::SetTrue)
-        )
-        .arg(
             Arg::new("user")
                 .short('u')
                 .long("user")
@@ -76,12 +69,20 @@ fn main() {
         )
         .arg(
             Arg::new("command")
-                .required_unless_present("login")  // require command unless -i
+                .required_unless_present("login")
+                .required_unless_present("reset_auth")
                 .num_args(1..)
                 .allow_hyphen_values(true)
                 .trailing_var_arg(true)
                 .value_name("COMMAND")
                 .help("Command to execute"),
+        )
+        .arg(
+            Arg::new("reset_auth")
+                .short('K')
+                .long("reset-auth")
+                .help("Invalidate cached credentials (clears authentication state)")
+                .action(clap::ArgAction::SetTrue)
         )
         .arg(
             Arg::new("verbose")
@@ -102,6 +103,17 @@ fn main() {
 
     // Who to run command as
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
+
+    let config = Config::load("/etc/elev.conf").expect("Failed to load config");
+    let mut auth_state = AuthState::new(config.timeout, current_user.clone(), groups.clone());
+
+    // Reset authentication timestamp (-K)
+    if matches.get_flag("reset_auth") {
+        auth_state.invalidate();
+        log_info("Authentication state cleared.");
+        println!("elev: authentication cache cleared");
+        exit(0);
+    }
 
     // Login shell mode (-i)
     if matches.get_flag("login") {

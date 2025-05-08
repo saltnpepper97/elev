@@ -61,6 +61,21 @@ impl AuthState {
             self.lockout_time = Some(Instant::now());
         }
     }
+    
+    pub fn invalidate(&mut self) {
+        self.last_authenticated = None;
+        let path = auth_timestamp_path(&self.username);
+        if path.exists() {
+            match std::fs::remove_file(&path) {
+                Ok(_) => log_info(&format!("Cleared auth cache for '{}'", self.username)),
+                Err(e) => log_error(&format!("Failed to clear auth cache for '{}': {}", self.username, e)),
+            }
+        } else {
+            log_debug(&format!("No auth cache found for '{}'", self.username));
+        }
+        self.failed_attempts = 0;
+        self.lockout_time = None;
+    }
 }
 
 fn auth_timestamp_path(user: &str) -> PathBuf {
