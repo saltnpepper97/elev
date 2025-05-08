@@ -82,26 +82,27 @@ pub struct CustomConversation {
 }
 
 impl ConversationHandler for CustomConversation {
-    fn prompt_echo(&mut self, _msg: &str) -> Option<String> {
-        print!("{}", self.prompt);
-        std::io::stdout().flush().ok()?;
+    fn prompt_echo_on(&mut self, msg: &CStr) -> Result<CString, ErrorCode> {
+        print!("{}", msg.to_string_lossy());
+        std::io::stdout().flush().ok();
         let mut input = String::new();
-        std::io::stdin().read_line(&mut input).ok()?;
-        Some(input.trim().to_string())
+        std::io::stdin().read_line(&mut input).map_err(|_| ErrorCode::Conversation)?;
+        Ok(CString::new(input.trim()).unwrap())
     }
 
-    fn prompt_blind(&mut self, _msg: &str) -> Option<String> {
-        print!("{}", self.prompt);
-        std::io::stdout().flush().ok()?;
-        rpassword::read_password().ok()
+    fn prompt_echo_off(&mut self, msg: &CStr) -> Result<CString, ErrorCode> {
+        print!("{}", msg.to_string_lossy());
+        std::io::stdout().flush().ok();
+        let input = rpassword::read_password().map_err(|_| ErrorCode::Conversation)?;
+        Ok(CString::new(input.trim()).unwrap())
     }
 
-    fn info(&mut self, msg: &str) {
-        println!("{}", msg);
+    fn text_info(&mut self, msg: &CStr) {
+        println!("{}", msg.to_string_lossy());
     }
 
-    fn error(&mut self, msg: &str) {
-        eprintln!("{}", msg);
+    fn error_msg(&mut self, msg: &CStr) {
+        eprintln!("{}", msg.to_string_lossy());
     }
 }
 
