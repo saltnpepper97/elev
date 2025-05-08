@@ -17,9 +17,9 @@ pub struct AuthState {
 }
 
 impl AuthState {
-    pub fn new(timeout: Duration, username: String, groups: Vec<String>) -> Self {
+    pub fn new(timeout: Duration, username: String, groups: Vec<String>, config: &Config) -> Self {
         let last_authenticated = load_last_auth(&username);
-        let roles = get_roles_for_user(&username);
+        let roles = get_roles_for_user(&username, config);
         log_debug(&format!(
             "Initializing AuthState for user '{}'. Timeout: {:?}, Groups: {:?}, Roles: {:?}",
             username, timeout, groups, roles
