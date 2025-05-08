@@ -4,6 +4,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use nix::unistd::User;
 use std::process::{Command, ExitStatus};
 use crate::logs::{log_info, log_warning, log_error};
+use crate::{Config, AuthState};
 
 /// Retrieves the groups of a user by calling the `id` command.
 pub fn get_user_groups(user: &str) -> Vec<String> {
