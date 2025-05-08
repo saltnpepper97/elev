@@ -165,15 +165,14 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
 
     while attempts < MAX_ATTEMPTS {
         // Initialize a new PAM context (uses /etc/pam.d/elev)
-        let mut ctx = match Context::new("elev", Some(user), CustomConversation {
-            prompt: format!("[ elev ] Please enter password for {}: ", user),
-        }) {
+        let mut ctx = match Context::new("elev", Some(user), CustomConversation { prompt: format!("[ elev ] Please enter password for {}: ", user) }) {
             Ok(c) => c,
             Err(e) => {
                 log_error(&format!("PAM init failed: {}", e));
                 return false;
             }
         };
+
 
         // Authenticate (prompts for password via Conversation)
         if let Err(e) = ctx.authenticate(Flag::NONE) {
