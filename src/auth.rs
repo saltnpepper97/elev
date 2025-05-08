@@ -105,31 +105,43 @@ impl ConversationHandler for CustomConversation {
     }
 }
 
-pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
+/// Verify whether a password is needed and, if so, prompt via PAM.
+/// `target_user` is who we will run as, and `command` is the command being executed.
+pub fn verify_password(
+    user: &str,
+    auth_state: &mut AuthState,
+    config: &Config,
+    target_user: &str,
+    command: &str,
+) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
-    // Here you would retrieve or define a rule related to this user
-    // For example, you could iterate through the rules and find the appropriate one
-    let rule = config.rules.iter().find(|r| r.user.as_deref() == Some(user));
+    // 1) Find first matching rule (in priority order)
+    let matching_rule = config.rules.iter().find(|rule| {
+        rule.matches(user, &auth_state.groups, target_user, command, &auth_state.roles)
+    });
 
-    if !config.password_required {
-        log_info("Password authentication skipped.");
-        return true;
-    }
-    
-    // If a rule exists for the user, check the password requirement for that rule
-    if let Some(rule) = rule {
-        if !config.requires_password_for_rule(rule) {
-            log_info("Password authentication skipped based on rule.");
+    // 2) If rule explicitly disables password, skip auth
+    if let Some(rule) = matching_rule {
+        if let Some(false) = rule.password_required {
+            log_info("Skipping password prompt due to rule override (password_required=false).");
             return true;
         }
     }
 
+    // 3) If no disabling override and no rule, check global
+    if matching_rule.is_none() && !config.password_required {
+        log_info("Skipping password prompt due to global password_required=false.");
+        return true;
+    }
+
+    // 4) Lockout
     if auth_state.check_lockout() {
         eprintln!("Account temporarily locked due to too many failures.");
         return false;
     }
 
+    // 5) Prompt loop
     const MAX_ATTEMPTS: u32 = 3;
     let mut attempts = 0;
 
@@ -161,7 +173,6 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
         }
 
         let _ = ctx.open_session(Flag::NONE);
-
         auth_state.update_last_authenticated();
         log_info(&format!("Successful login for user: {}", user));
         return true;
