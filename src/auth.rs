@@ -1,5 +1,3 @@
-// src/auth.rs
-
 use pam_client2::{Context, Flag};
 use pam_client2::conv_cli::Conversation;
 use std::fs::{read_to_string, write, create_dir_all};
