@@ -1,12 +1,34 @@
-// src/auth.rs
-
-use pam_client2::{Context, Flag};
-use pam_client2::conv_cli::Conversation;
-use std::fs::{read_to_string, write, create_dir_all};
-use std::path::PathBuf;
+use pam::{
+    authenticate, acct_mgmt, end, start, PamFlag, PamMessageStyle, PamResponse, PamResult, PamHandle,
+};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::fs::{read_to_string, write, create_dir_all};
 use crate::logs::{log_info, log_error, log_debug};
 use crate::Config;
+use rpassword::prompt_password;
+
+struct PasswordPrompt {
+    password: String,
+}
+
+impl pam::Conversation for PasswordPrompt {
+    fn call(&mut self, msg_style: PamMessageStyle, msg: &str) -> PamResult<Vec<PamResponse>> {
+        match msg_style {
+            PamMessageStyle::PROMPT_ECHO_OFF => Ok(vec![self.password.clone().into()]),
+            PamMessageStyle::PROMPT_ECHO_ON => {
+                print!("{msg}");
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input).unwrap();
+                Ok(vec![input.trim().into()])
+            }
+            PamMessageStyle::ERROR_MSG | PamMessageStyle::TEXT_INFO => {
+                println!("{msg}");
+                Ok(vec![PamResponse::default()])
+            }
+            _ => Err(pam::PamReturnCode::CONV_ERR.into()),
+        }
+    }
+}
 
 pub struct AuthState {
     pub last_authenticated: Option<Instant>,
@@ -109,22 +131,25 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
     let mut attempts = 0;
 
     while attempts < MAX_ATTEMPTS {
-        // Build PAM context using CLI conversation (prompts once per authenticate)
-        let mut ctx = match Context::new(
-            "elev",               // matches /etc/pam.d/elev
-            Some(user),           // &str
-            Conversation::new(),  // handles /dev/tty & echo-off
-        ) {
-            Ok(c) => c,
+        // Secure password input
+        let password = match prompt_password(format!("Password for {}: ", user)) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+
+        // Build PAM context using CLI conversation (password input)
+        let mut conv = PasswordPrompt { password };
+        let mut handle = match start("elev", Some(user), &mut conv) {
+            Ok(h) => h,
             Err(e) => {
                 log_error(&format!("PAM init failed: {}", e));
                 return false;
             }
         };
 
-        // Attempt authentication (this will prompt “Password: ” via Conversation)
-        if let Err(e) = ctx.authenticate(Flag::NONE) {
-            log_error(&format!("PAM authentication failed: {}", e));
+        // Attempt authentication
+        if authenticate(&mut handle, PamFlag::NONE).is_err() {
+            log_error(&format!("PAM authentication failed for user: {}", user));
             attempts += 1;
             auth_state.increment_failed_attempts();
             eprintln!("Failed login attempt #{}", attempts);
@@ -135,8 +160,8 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
         }
 
         // Post-auth account checks (e.g., expired, locked)
-        if let Err(e) = ctx.acct_mgmt(Flag::NONE) {
-            eprintln!("Account validation failed: {}", e);
+        if acct_mgmt(&mut handle, PamFlag::NONE).is_err() {
+            eprintln!("Account validation failed: {}", user);
             return false;
         }
 
