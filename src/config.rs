@@ -14,87 +14,92 @@ pub struct Rule {
     pub priority: u8,
     pub allowed_roles: Option<Vec<String>>,
     pub deny: bool,
-    pub password_required: Option<bool>,
+    pub password_required: Option<bool>, // per-rule override
 }
 
 #[derive(Debug)]
 pub struct Config {
     pub rules: Vec<Rule>,
     pub timeout: Duration,
-    pub roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>, // Time added here
+    pub password_required: bool, // global default
+    pub roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>,
 }
 
 impl Config {
     pub fn load(filename: &str) -> Result<Self, std::io::Error> {
-        log_info(&format!("Loading configuration from file: {}", filename));  // Log configuration load
+        log_info(&format!("Loading configuration from file: {}", filename));
         let file = File::open(filename)?;
         let reader = BufReader::new(file);
         let mut rules = Vec::new();
         let mut timeout = Duration::from_secs(60);
-        let mut password_required = true;
+        let mut password_required = true; // default until overridden
         let mut roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)> = HashMap::new();
         let mut raw_lines = Vec::new();
 
+        // First pass: collect roles and raw lines
         for line in reader.lines() {
             let line = line?.trim().to_string();
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
-        
+
             if let Some(role_def) = line.strip_prefix("role ") {
                 let mut parts = role_def.splitn(3, ' ');
                 if let Some(role_name) = parts.next() {
-                    let mut users = Vec::new();
-                    let mut time_range = None;
-        
-                    if let Some(users_str) = parts.next() {
-                        users = users_str.split(',')
-                            .map(|s| s.trim().to_string())
-                            .collect();
-                    }
-        
-                    if let Some(timing_str) = parts.next() {
+                    let users = parts
+                        .next()
+                        .unwrap_or("")
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                        .map(String::from)
+                        .collect();
+                    let time_range = parts.next().and_then(|timing_str| {
                         let times: Vec<&str> = timing_str.split('-').collect();
                         if times.len() == 2 {
-                            let start_time = chrono::NaiveTime::parse_from_str(times[0], "%H:%M").unwrap();
-                            let end_time = chrono::NaiveTime::parse_from_str(times[1], "%H:%M").unwrap();
-                            time_range = Some((start_time, end_time));
+                            Some((
+                                chrono::NaiveTime::parse_from_str(times[0], "%H:%M").unwrap(),
+                                chrono::NaiveTime::parse_from_str(times[1], "%H:%M").unwrap(),
+                            ))
+                        } else {
+                            None
                         }
-                    }
-        
+                    });
                     roles.insert(role_name.to_string(), (users.clone(), time_range));
-                    log_info(&format!("Defined role '{}' with members {:?} and timing {:?}", role_name, users, time_range));
+                    log_info(&format!(
+                        "Defined role '{}' with members {:?} and timing {:?}",
+                        role_name, users, time_range
+                    ));
                 }
             } else {
                 raw_lines.push(line);
             }
         }
- 
+
         // Second pass: parse rules and global settings
         for line in &raw_lines {
             if let Some(rule) = parse_rule(line, &roles) {
                 rules.push(rule);
             }
-        
+
             if let Some(timeout_str) = line.strip_prefix("timeout ") {
-                if let Ok(timeout_value) = timeout_str.trim().parse::<u64>() {
-                    timeout = Duration::from_secs(timeout_value);
-                    log_info(&format!("Loaded timeout value from config: {} seconds", timeout_value));
+                if let Ok(sec) = timeout_str.trim().parse::<u64>() {
+                    timeout = Duration::from_secs(sec);
+                    log_info(&format!("Loaded timeout: {}s", sec));
                 }
             }
-        
-            if let Some(password_str) = line.strip_prefix("password_required ") {
-                if let Ok(pass_req) = password_str.trim().parse::<bool>() {
-                    password_required = pass_req;
-                    log_info(&format!("Loaded password_required value from config: {}", password_required));
+
+            if let Some(pass_str) = line.strip_prefix("password_required ") {
+                if let Ok(req) = pass_str.trim().parse::<bool>() {
+                    password_required = req;
+                    log_info(&format!("Loaded global password_required: {}", req));
                 }
             }
         }
 
-        // Sort rules by priority
-        rules.sort_by(|a, b| b.priority.cmp(&a.priority)); // Sort in descending order
-
-        log_info(&format!("Loaded {} rules from configuration", rules.len()));  // Log the number of rules loaded
+        // sort rules by descending priority
+        rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+        log_info(&format!("Loaded {} rules", rules.len()));
 
         Ok(Config {
             rules,
@@ -102,6 +107,11 @@ impl Config {
             password_required,
             roles,
         })
+    }
+
+    /// Check if a specific rule or global requires password
+    pub fn requires_password_for_rule(&self, rule: &Rule) -> bool {
+        rule.password_required.unwrap_or(self.password_required)
     }
 
     pub fn is_permitted(
@@ -112,13 +122,9 @@ impl Config {
         command: &str,
         user_roles: &[String],
     ) -> bool {
-        // Check the rules in priority order (already sorted)
         for rule in &self.rules {
             if rule.matches(username, groups, target_user, command, user_roles) {
-                if rule.deny {
-                    return false;
-                }
-                return true;
+                return !rule.deny;
             }
         }
         false
@@ -134,55 +140,49 @@ impl Rule {
         command: &str,
         user_roles: &[String],
     ) -> bool {
-        pub fn requires_password(&self, global_default: bool) -> bool {
-            self.password_required.unwrap_or(global_default)
-        }
-        let user_ok = match &self.user {
-            Some(u) if u != "*" => u == user,
-            _ => true,
-        };
-
-        let group_ok = match &self.group {
-            Some(g) if g != "*" => groups.iter().any(|gr| gr == g),
-            _ => true,
-        };
-
-        if !user_ok && !group_ok {
+        // user or group match
+        let user_ok = self.user.as_deref().map_or(true, |u| u == "*" || u == user);
+        let group_ok = self.group.as_deref().map_or(true, |g| g == "*" || groups.iter().any(|gr| gr == g));
+        if !(user_ok || group_ok) {
             return false;
         }
-        
-        if let Some(allowed_roles) = &self.allowed_roles {
-            if !user_roles.iter().any(|role| allowed_roles.contains(role)) {
-                return false; // Role does not match
+
+        // role match
+        if let Some(allowed) = &self.allowed_roles {
+            if !user_roles.iter().any(|r| allowed.contains(r)) {
+                return false;
             }
         }
 
+        // as_user match
         if let Some(as_u) = &self.as_user {
             if as_u != target_user {
                 return false;
             }
         }
 
+        // command regex
         if let Some(re) = &self.cmd_regex {
             if !re.is_match(command) {
                 return false;
             }
         }
+
         true
     }
 }
 
 fn wildcard_to_regex(pattern: &str) -> String {
-    let mut regex = String::from("^");
+    let mut re = String::from("^");
     for ch in pattern.chars() {
         match ch {
-            '*' => regex.push_str(".*"),
-            '?' => regex.push('.'),
-            _ => regex.push_str(&regex::escape(&ch.to_string())),
+            '*' => re.push_str(".*"),
+            '?' => re.push('.'),
+            c => re.push_str(&regex::escape(&c.to_string())),
         }
     }
-    regex.push('$');
-    regex
+    re.push('$');
+    re
 }
 
 fn parse_rule(
@@ -196,25 +196,22 @@ fn parse_rule(
 
     let mut deny = false;
     let mut i = 0;
-    match tokens[i] {
-        "deny" => {
-            deny = true;
-            i += 1;
-        }
-        "allow" => {
-            i += 1;
-        }
+    match tokens[0] {
+        "deny" => { deny = true; i = 1; }
+        "allow" => { i = 1; }
         _ => return None,
     }
 
+    // subject
     let mut user = None;
     let mut group = None;
     if i < tokens.len() {
-        let t = tokens[i];
-        if t.starts_with(':') {
-            group = Some(t[1..].to_string());
-        } else {
-            user = Some(t.to_string());
+        if let Some(rest) = tokens.get(i) {
+            if rest.starts_with(':') {
+                group = Some(rest[1..].to_string());
+            } else {
+                user = Some(rest.to_string());
+            }
         }
         i += 1;
     }
@@ -223,55 +220,46 @@ fn parse_rule(
     let mut cmd_regex = None;
     let mut priority = 0;
     let mut allowed_roles = None;
+    let mut password_required = None;
 
     while i < tokens.len() {
         match tokens[i] {
-            "as" if i + 1 < tokens.len() => {
-                as_user = Some(tokens[i + 1].to_string());
-                i += 2;
-            }
-            "cmd" if i + 1 < tokens.len() => {
-                let pat = tokens[i + 1];
+            "as" if i+1 < tokens.len() => { as_user = Some(tokens[i+1].to_string()); i += 2; }
+            "cmd" if i+1 < tokens.len() => {
+                let pat = tokens[i+1];
                 let re_str = if pat.contains('*') || pat.contains('?') {
                     wildcard_to_regex(pat)
                 } else if pat == "*" {
                     String::from("^.*$")
                 } else {
-                    // Match against any full path where the basename is the given pattern
                     format!(r"(^|.*/){}$", regex::escape(pat))
                 };
-                cmd_regex = Some(Regex::new(&re_str).unwrap_or_else(|_| Regex::new("^$").unwrap()));
+                cmd_regex = Some(Regex::new(&re_str).unwrap());
                 i += 2;
             }
-            "cmd_regex" if i + 1 < tokens.len() => {
-                let pattern = tokens[i + 1];
-                cmd_regex = Some(Regex::new(pattern).unwrap_or_else(|_| Regex::new("^$").unwrap()));
+            "cmd_regex" if i+1 < tokens.len() => {
+                cmd_regex = Some(Regex::new(tokens[i+1]).unwrap());
                 i += 2;
             }
-            "priority" if i + 1 < tokens.len() => {
-                priority = tokens[i + 1].parse().unwrap_or(0);
+            "priority" if i+1 < tokens.len() => {
+                priority = tokens[i+1].parse().unwrap_or(0);
                 i += 2;
             }
-            "roles" if i + 1 < tokens.len() => {
-                let parsed_roles: Vec<String> = tokens[i + 1].split(',').map(|s| s.to_string()).collect();
-
-                for role in &parsed_roles {
-                    if !roles_map.contains_key(role) {
-                        log_warn(&format!("Rule references undefined role: '{}'", role));
+            "roles" if i+1 < tokens.len() => {
+                let parsed = tokens[i+1].split(',').map(str::to_string).collect::<Vec<_>>();
+                for r in &parsed {
+                    if !roles_map.contains_key(r) {
+                        log_warn(&format!("Rule references undefined role '{}'", r));
                     }
                 }
-
-                allowed_roles = Some(parsed_roles);
+                allowed_roles = Some(parsed);
                 i += 2;
             }
-            "password_required" if i + 1 < tokens.len() => {
-                let val = tokens[i + 1].parse::<bool>().unwrap_or(true);
-                password_required = Some(val);
+            "password_required" if i+1 < tokens.len() => {
+                password_required = tokens[i+1].parse().ok();
                 i += 2;
             }
-            _ => {
-                i += 1;
-            }
+            _ => { i += 1; }
         }
     }
 
