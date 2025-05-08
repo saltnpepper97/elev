@@ -222,8 +222,17 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, Vec<String>>) -> Option<Ru
                 priority = tokens[i + 1].parse().unwrap_or(0);
                 i += 2;
             }
-            "roles" if i + 1 < tokens.len() => {  // Roles handling
-                allowed_roles = Some(tokens[i + 1].split(',').map(String::from).collect());
+            "roles" if i + 1 < tokens.len() => {
+                let parsed_roles: Vec<String> = tokens[i + 1].split(',').map(|s| s.to_string()).collect();
+            
+                // Validate roles exist in the map
+                for role in &parsed_roles {
+                    if !roles_map.contains_key(role) {
+                        log_warn(&format!("Rule references undefined role: '{}'", role));
+                    }
+                }
+            
+                allowed_roles = Some(parsed_roles);
                 i += 2;
             }
             _ => { i += 1; }
