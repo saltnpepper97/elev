@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 use regex::Regex;
 use std::time::Duration;
 use std::collections::HashMap;
-use crate::logs::{log_info, log_warn, log_error};
+use crate::logs::{log_info, log_warn};
 
 #[derive(Clone, Debug)]
 pub struct Rule {
@@ -71,7 +71,7 @@ impl Config {
         
         // Second pass: parse rules and global settings
         for line in &raw_lines {
-            if let Some(rule) = parse_rule(&line, &roles) {
+            if let Some(rule) = parse_rule(line, &roles) {
                 rules.push(rule);
             }
         
@@ -228,7 +228,7 @@ fn parse_rule(line: &str, roles_map: &HashMap<String, Vec<String>>) -> Option<Ru
                 if times.len() == 2 {
                     let start_time = chrono::NaiveTime::parse_from_str(times[0], "%H:%M").unwrap();
                     let end_time = chrono::NaiveTime::parse_from_str(times[1], "%H:%M").unwrap();
-                    time_range = Some((start_time, end_time));
+                    let time_range = Some((start_time, end_time));
                 }
                 i += 2;
             }
