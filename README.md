@@ -40,7 +40,7 @@ Install the binary to /usr/local/bin/elev
 
 Create a default config at /etc/elev.conf
 
-##Configuration
+## Configuration
 
 The default configuration file is located at /etc/elev.conf. Define rules using human-readable syntax. Available keywords:
 
@@ -58,11 +58,11 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
 
     days <mon,tue,...,sun> or * for all days
 
-##Example rule format:
+## Example rule format:
 
     allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>] [days <list>]
 
-##Examples
+## Examples
 
     # Allow user "alice" to run "journalctl" as root at any time
     allow alice role=admin as root cmd journalctl
@@ -74,7 +74,7 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
     deny all cmd reboot
     deny all cmd shutdown
 
-##Usage
+## Usage
 
 Invoke elev just like you would sudo or doas:
 
