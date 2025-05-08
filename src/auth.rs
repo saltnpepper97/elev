@@ -101,6 +101,7 @@ fn get_roles_for_user(username: &str) -> Vec<String> {
 }
 
 /// Perform PAM-based password verification, applying timeout and lockout logic.
+/// Perform PAM-based password verification, applying timeout and lockout logic.
 pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) -> bool {
     log_debug(&format!("Starting password verification for user '{}'", user));
 
@@ -147,12 +148,14 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
         // Optional: open a session
         let _ = ctx.open_session(Flag::NONE);
 
-        // Success
+        // Success: update state and return
         auth_state.update_last_authenticated();
         log_info(&format!("Successful login for user: {}", user));
+        // Optional: close session if desired
+        // let _ = ctx.close_session(Flag::NONE);
+        return true;
     }
 
     eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
     false
 }
-
