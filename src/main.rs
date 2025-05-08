@@ -60,7 +60,7 @@ fn main() {
         )
         .arg(
             Arg::new("command")
-                .required(true)
+                .required(false)  // Make command optional when -i is used
                 .num_args(1..)
                 .allow_hyphen_values(true)
                 .trailing_var_arg(true)
@@ -94,6 +94,17 @@ fn main() {
     // Who to run command as
     let target_user = matches.get_one::<String>("user").map(String::as_str).unwrap_or("root");
 
+    // Check for command or login shell flag
+    if matches.get_flag("login") {
+        // If login flag is passed, skip command execution and launch shell
+        let mut shell_command = ProcessCommand::new("/bin/bash");
+        shell_command.arg("-l"); // login shell flag
+        
+        let err = shell_command.exec();
+        log_error(&format!("Failed to exec login shell: {}", err));
+        exit(1);
+    }
+
     let command_and_args = matches
         .get_many::<String>("command")
         .expect("Command is required")
@@ -123,35 +134,25 @@ fn main() {
         }
     }
 
-    // Login shell logic
-    if matches.get_flag("login") {
-        let mut shell_command = ProcessCommand::new("/bin/bash");
-        shell_command.arg("-l"); // login shell flag
-        
-        let err = shell_command.exec();
-        log_error(&format!("Failed to exec login shell: {}", err));
-        exit(1);
-    } else {
-        exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
-            use std::io::ErrorKind;
-    
-            match e.kind() {
-                ErrorKind::PermissionDenied => {
-                    eprintln!("elev: permission denied: '{}'", command);
-                }
-                ErrorKind::NotFound => {
-                    eprintln!("elev: command not found: '{}'", command);
-                }
-                ErrorKind::TimedOut => {
-                    eprintln!("elev: authentication timed out");
-                }
-                _ => {
-                    eprintln!("elev: error running command '{}': {}", command, e);
-                }
+    exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
+        use std::io::ErrorKind;
+
+        match e.kind() {
+            ErrorKind::PermissionDenied => {
+                eprintln!("elev: permission denied: '{}'", command);
             }
-    
-            log_error(&format!("Command failed: {}", e));
-            exit(1);
-        });
-    }
+            ErrorKind::NotFound => {
+                eprintln!("elev: command not found: '{}'", command);
+            }
+            ErrorKind::TimedOut => {
+                eprintln!("elev: authentication timed out");
+            }
+            _ => {
+                eprintln!("elev: error running command '{}': {}", command, e);
+            }
+        }
+
+        log_error(&format!("Command failed: {}", e));
+        exit(1);
+    });
 }
