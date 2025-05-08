@@ -150,10 +150,6 @@ pub fn verify_password(user: &str, auth_state: &mut AuthState, config: &Config) 
         // Success
         auth_state.update_last_authenticated();
         log_info(&format!("Successful login for user: {}", user));
-
-        // Optional: close session
-        let _ = ctx.close_session(Flag::NONE);
-        return true;
     }
 
     eprintln!("User '{}' failed to authenticate after {} attempt(s).", user, MAX_ATTEMPTS);
