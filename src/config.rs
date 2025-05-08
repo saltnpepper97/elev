@@ -61,7 +61,7 @@ impl Config {
                         }
                     }
         
-                    roles.insert(role_name.to_string(), (users, time_range));
+                    roles.insert(role_name.to_string(), (users.clone(), time_range));
                     log_info(&format!("Defined role '{}' with members {:?} and timing {:?}", role_name, users, time_range));
                 }
             } else {
@@ -139,13 +139,6 @@ impl Rule {
         if let Some(re) = &self.cmd_regex {
             if !re.is_match(command) {
                 return false;
-            }
-        }
-
-        if let Some((start_time, end_time)) = &self.time_range {
-            let current_time = chrono::Local::now().naive_local().time();
-            if current_time < *start_time || current_time > *end_time {
-                return false; // Time is outside the allowed range
             }
         }
         true
