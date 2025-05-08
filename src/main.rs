@@ -6,7 +6,8 @@ mod logs;
 
 use clap::{Arg, Command};
 use config::Config;
-use std::process::exit;
+use std::os::unix::process::CommandExt;
+use std::process::{exit, Command as ProcessCommand};
 use util::get_user_groups;
 use auth::{verify_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
@@ -73,6 +74,13 @@ fn main() {
                 .help("Enable verbose logging")
                 .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("login")
+                .short('i')
+                .long("login")
+                .help("Run command as a login shell")
+                .action(clap::ArgAction::SetTrue),
+        )
         .get_matches();
 
     // Initialize logging
@@ -115,25 +123,35 @@ fn main() {
         }
     }
 
-    exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
-        use std::io::ErrorKind;
-    
-        match e.kind() {
-            ErrorKind::PermissionDenied => {
-                eprintln!("elev: permission denied: '{}'", command);
-            }
-            ErrorKind::NotFound => {
-                eprintln!("elev: command not found: '{}'", command);
-            }
-            ErrorKind::TimedOut => {
-                eprintln!("elev: authentication timed out");
-            }
-            _ => {
-                eprintln!("elev: error running command '{}': {}", command, e);
-            }
-        }
-    
-        log_error(&format!("Command failed: {}", e));
+    // Login shell logic
+    if matches.get_flag("login") {
+        let mut shell_command = ProcessCommand::new("/bin/bash");
+        shell_command.arg("-l"); // login shell flag
+        
+        let err = shell_command.exec();
+        log_error(&format!("Failed to exec login shell: {}", err));
         exit(1);
-    });
+    } else {
+        exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
+            use std::io::ErrorKind;
+    
+            match e.kind() {
+                ErrorKind::PermissionDenied => {
+                    eprintln!("elev: permission denied: '{}'", command);
+                }
+                ErrorKind::NotFound => {
+                    eprintln!("elev: command not found: '{}'", command);
+                }
+                ErrorKind::TimedOut => {
+                    eprintln!("elev: authentication timed out");
+                }
+                _ => {
+                    eprintln!("elev: error running command '{}': {}", command, e);
+                }
+            }
+    
+            log_error(&format!("Command failed: {}", e));
+            exit(1);
+        });
+    }
 }
