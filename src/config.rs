@@ -49,7 +49,7 @@ impl Config {
                             .split(',')
                             .map(|s| s.trim().to_string())
                             .collect();
-                        roles.insert(role_name.to_string(), users);
+                        roles.insert(role_name.to_string(), users.clone());
                         log_info(&format!("Defined role '{}' with members {:?}", role_name, users));
                     }
                 }
