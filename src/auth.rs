@@ -1,5 +1,5 @@
 use rpassword::read_password;
-use pam_client2::{Context, Flag, ConversationHandler};
+use pam_client2::{Context, Flag, ConversationHandler, ErrorCode};
 use std::ffi::{CStr, CString};
 use std::io::{self, Write};
 use std::time::{Instant, Duration};

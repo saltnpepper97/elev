@@ -7,7 +7,7 @@ use clap::{Arg, Command};
 use config::Config;
 use std::os::unix::process::CommandExt;
 use std::process::{exit, Command as ProcessCommand};
-use util::get_user_groups;
+use util::{get_user_groups, switch_user, run_command};
 use auth::{verify_password, AuthState};
 use logs::{init_logger, log_info, log_warn, log_error};
 use nix::unistd::{getuid, geteuid, User};
@@ -117,7 +117,7 @@ fn main() {
     // Login shell mode (-i)
     if matches.get_flag("login") {
         // Switch to target user
-        if let Err(e) = exec::switch_user(target_user) {
+        if let Err(e) = switch_user(target_user) {
             log_error(&format!("Failed to switch to user '{}': {}", target_user, e));
             exit(1);
         }
@@ -183,7 +183,7 @@ fn main() {
     }
 
     // Run the command
-    exec::run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
+    run_command(&config, &mut auth_state, target_user, command, &args).unwrap_or_else(|e| {
         use std::io::ErrorKind;
 
         match e.kind() {
