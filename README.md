@@ -74,9 +74,6 @@ allow <user_or_:group> [as <target_user>] cmd <pattern> [priority <n>] [time <st
 # Allow user "alice" to run "journalctl" as root at any time
 allow alice as root cmd journalctl
 
-# Deny user "bob" from running "userdel" between 22:00 and 06:00 on weekdays
-deny bob as root cmd userdel time 22:00-06:00 days mon,tue,wed,thu,fri
-
 # Allow any member of group "admins" to run any command as any user, high priority
 allow :admins cmd * priority 100
 
