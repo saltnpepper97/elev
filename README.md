@@ -56,8 +56,6 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
 
     priority <0-255>
 
-    days <mon,tue,...,sun> or * for all days
-
 ## Example rule format:
 
     allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>]
