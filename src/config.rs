@@ -14,13 +14,13 @@ pub struct Rule {
     pub priority: u8,
     pub allowed_roles: Option<Vec<String>>,
     pub deny: bool,
+    pub password_required: Option<bool>,
 }
 
 #[derive(Debug)]
 pub struct Config {
     pub rules: Vec<Rule>,
     pub timeout: Duration,
-    pub password_required: bool,
     pub roles: HashMap<String, (Vec<String>, Option<(chrono::NaiveTime, chrono::NaiveTime)>)>, // Time added here
 }
 
@@ -134,6 +134,9 @@ impl Rule {
         command: &str,
         user_roles: &[String],
     ) -> bool {
+        pub fn requires_password(&self, global_default: bool) -> bool {
+            self.password_required.unwrap_or(global_default)
+        }
         let user_ok = match &self.user {
             Some(u) if u != "*" => u == user,
             _ => true,
@@ -261,6 +264,11 @@ fn parse_rule(
                 allowed_roles = Some(parsed_roles);
                 i += 2;
             }
+            "password_required" if i + 1 < tokens.len() => {
+                let val = tokens[i + 1].parse::<bool>().unwrap_or(true);
+                password_required = Some(val);
+                i += 2;
+            }
             _ => {
                 i += 1;
             }
@@ -275,5 +283,6 @@ fn parse_rule(
         priority,
         allowed_roles,
         deny,
+        password_required,
     })
 }
