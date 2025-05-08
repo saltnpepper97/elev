@@ -41,7 +41,7 @@ This script will:
 
     Create a default config at /etc/elev.conf
 
-Configuration
+##Configuration
 
 The default configuration file is located at /etc/elev.conf. Define rules using human-readable syntax. Available keywords:
 
@@ -59,28 +59,28 @@ The default configuration file is located at /etc/elev.conf. Define rules using 
 
     days <mon,tue,...,sun> or * for all days
 
-Example rule format:
+##Example rule format:
 
-allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>] [days <list>]
+      allow <user_or_:group> [role=<role_name>] [as <target_user>] cmd <pattern> [priority <n>] [days <list>]
 
-Examples
+##Examples
 
-# Allow user "alice" to run "journalctl" as root at any time
-allow alice role=admin as root cmd journalctl
+      # Allow user "alice" to run "journalctl" as root at any time
+      allow alice role=admin as root cmd journalctl
 
-# Allow any member of group "admins" to run any command as any user, high priority
-allow :admins role=superuser cmd * priority 100
+      # Allow any member of group "admins" to run any command as any user, high priority
+      allow :admins role=superuser cmd * priority 100
 
-# Deny all users from rebooting or shutting down the system
-deny all cmd reboot
-deny all cmd shutdown
+      # Deny all users from rebooting or shutting down the system
+      deny all cmd reboot
+      deny all cmd shutdown
 
-Usage
+##Usage
 
 Invoke elev just like you would sudo or doas:
 
-$ elev journalctl -xe
+      $ elev journalctl -xe
 
 For detailed help:
 
-$ elev --help
+      $ elev --help
