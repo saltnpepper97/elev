@@ -25,20 +25,20 @@
 * Access to the `root` account (no `sudo` or `doas` required)
 
 1. **Switch to the root user**:
-
-   su -
-
-3. **Run the installer from the project root**:
-
-   ./install.sh
-
+```
+su -
+```
+2. **Run the installer from the project root**:
+```
+./install.sh
+```
 This script will:
 
-    Compile elev in release mode
+Compile elev in release mode
 
-    Install the binary to /usr/local/bin/elev
+Install the binary to /usr/local/bin/elev
 
-    Create a default config at /etc/elev.conf
+Create a default config at /etc/elev.conf
 
 ##Configuration
 
