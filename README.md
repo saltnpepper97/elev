@@ -1,6 +1,6 @@
 # elev
 
-**elev** is a minimal, secure privilege elevation tool written in Rust—designed as a drop‑in replacement for `sudo` or `doas`. It follows modern security practices with a focus on simplicity and transparency.
+**elev** is a minimal and secure privilege elevation tool written in Rust—designed as a drop‑in replacement for `sudo` or `doas`. It follows modern security practices with a focus on simplicity and transparency.
 
 ---
 
